@@ -150,7 +150,13 @@
     if (!state.visible || lastMode === 'expanded' || state.pinned || state.moving || (state.toast && now < state.toastUntil)) return;
     show(draw());
   }
-  setInterval(tick, 250);
+  function tickLoop() {
+    setTimeout(() => {
+      tick();
+      tickLoop();
+    }, (state.features.noBlur || state.features.noAnimations || state.features.glassFreeze) ? 500 : 250);
+  }
+  tickLoop();
 
   $('#rm-close').addEventListener('click', (e) => {
     e.stopPropagation();

@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('nova', {
   onNetwork: on('network'),
   onClipSmart: on('clip-smart'),
   onNear: on('near'),
+  batteryReport: (r) => ipcRenderer.send('battery-report', r),
+  onSaver: on('saver-toggle'),
   clipAction: (action) => ipcRenderer.send('clip-action', action),
   network: () => ipcRenderer.invoke('net-get'),
   onShotSaved: on('shot-saved'),

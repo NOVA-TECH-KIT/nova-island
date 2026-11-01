@@ -72,7 +72,7 @@
   });
 
   // countdown (paused while the mouse is on it), and a blink now and then
-  setInterval(() => {
+  function tick() {
     const now = Date.now();
     const dt = now - lastTick;
     lastTick = now;
@@ -80,7 +80,13 @@
     if (state.hover) state.sceneUntil += dt;
     if (now >= state.sceneUntil) return end();
     bar.style.width = `${Math.max(0, (state.sceneUntil - now) / total) * 100}%`;
-  }, 250);
+  }
+  (function loop() {
+    setTimeout(() => {
+      tick();
+      loop();
+    }, (state.features.noBlur || state.features.noAnimations || state.features.glassFreeze) ? 500 : 250);
+  })();
   (function blink() {
     if (current) {
       face.classList.add('blink');

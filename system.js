@@ -166,7 +166,13 @@ function snapshot() {
 
 function start(sender) {
   send = sender;
-  setInterval(tickStats, 2000);
+  // CPU sampling slows down while any performance cut is on.
+  const light = () => features.get().noBlur || features.get().noAnimations || features.get().glassFreeze;
+  function statsLoop() {
+    tickStats();
+    setTimeout(statsLoop, light() ? 5000 : 2000);
+  }
+  setTimeout(statsLoop, light() ? 5000 : 2000);
   fetchWeather();
 }
 

@@ -23,8 +23,13 @@ function nope(el) {
 function showFeatures(f) {
   features = f;
   $$('[data-feature]').forEach((el) => { el.checked = !!f[el.dataset.feature]; });
-  // child settings show only while every switch they depend on is on
+  // the battery saver threshold is a plain number input, kept in step here
+  const at = $('#saver-at');
+  if (at && document.activeElement !== at) at.value = f.batterySaverAt ?? 20;
+  // child settings show only while every switch they depend on is on, and rows with
+  // [data-needs-not] hide while any of their listed switches is on
   $$('[data-needs]').forEach((el) => el.classList.toggle('off', !el.dataset.needs.split(' ').every((k) => f[k])));
+  $$('[data-needs-not]').forEach((el) => el.classList.toggle('off', el.dataset.needsNot.split(' ').some((k) => f[k])));
   showSteppers();
 }
 
@@ -204,6 +209,24 @@ $('#copy-report').addEventListener('click', async () => {
 $('#reset-all').addEventListener('click', () => {
   api.resetFeatures();
   saved('Reset to defaults');
+});
+
+// battery saver threshold: clamp to 10–100 on commit; invalid input snaps back
+$('#saver-at').addEventListener('change', () => {
+  const at = $('#saver-at');
+  let v = Math.round(Number(at.value));
+  if (!Number.isFinite(v) || at.value === '') {
+    at.value = features.batterySaverAt;
+    nope(at);
+    return;
+  }
+  v = Math.min(100, Math.max(10, v));
+  at.value = v;
+  if (v !== features.batterySaverAt) {
+    features.batterySaverAt = v;
+    api.setFeatures({ batterySaverAt: v });
+    saved();
+  }
 });
 
 // ---- window buttons ----

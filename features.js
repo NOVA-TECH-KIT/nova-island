@@ -23,6 +23,8 @@ const DEFAULTS = {
   hudVolume: true,
   hudBrightness: true,
   battery: true,
+  batterySaver: false, // force the performance cuts on when the battery runs low
+  batterySaverAt: 20, // ...at this percent (10–100)
   prayerAlerts: true,
   asrHanafi: false, // Asr by the Hanafi shadow rule
   hijriAdjust: 0, // days added to the Hijri date (local moon sighting)
@@ -33,6 +35,10 @@ const DEFAULTS = {
   hideFullscreen: true,
   autoUpdate: true, // download new versions from GitHub and offer a restart on the island
   addrIsland: true, // take the right third of the browser's address bar
+  // low-end PCs: the two cuts below; the island's background work slows down while either is on
+  noBlur: false, // solid panel instead of the live glass — no screen captures
+  noAnimations: false, // no decorative motion
+  glassFreeze: false, // the glass only refreshes while the island is open or changing
   // System tab
   clipboardHistory: true,
   // copied image / screenshot -> toast with "Add to Shelf"
@@ -75,6 +81,7 @@ const DEFAULTS = {
 const RANGES = {
   remindEvery: [1, 240], remindFor: [5, 300], quietFrom: [0, 1439], quietTo: [0, 1439],
   focusMin: [5, 120], breakMin: [1, 60], longBreakMin: [5, 60], hijriAdjust: [-2, 2], waterEvery: [15, 240], waterGoal: [4, 16],
+  batterySaverAt: [10, 100],
 };
 
 let values = { ...DEFAULTS, ...pick(settings.load('features.json', {})) };
@@ -92,8 +99,19 @@ function pick(obj) {
   return out;
 }
 
+// Battery saver layers the performance cuts on top while the battery runs low; the saved
+// switches stay untouched, so they come back by themselves once the battery recovers.
+const SAVER_CUTS = { noBlur: true, noAnimations: true, glassFreeze: true };
+let saver = false;
 function get() {
-  return { ...values };
+  return saver ? { ...values, ...SAVER_CUTS } : { ...values };
+}
+
+function setSaver(on) {
+  on = !!on;
+  if (on === saver) return;
+  saver = on;
+  listeners.forEach((fn) => fn(get()));
 }
 
 function set(patch) {
@@ -113,4 +131,4 @@ function reset() {
 
 const onChange = (fn) => listeners.push(fn);
 
-module.exports = { get, set, reset, onChange, DEFAULTS };
+module.exports = { get, set, setSaver, reset, onChange, DEFAULTS };

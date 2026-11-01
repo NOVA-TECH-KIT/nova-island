@@ -26,6 +26,7 @@
       </label>
       <a href="#general" data-page="general"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>General</a>
       <a href="#island" data-page="island"><svg viewBox="0 0 24 24"><rect x="2" y="8" width="20" height="8" rx="4"/></svg>Island</a>
+      <a href="#performance" data-page="performance"><svg viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg>Performance</a>
       <a href="#companion" data-page="companion"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>Companion</a>
       <a href="#faith" data-page="faith"><svg viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>Prayer &amp; Dhikr</a>
       <a href="#alerts" data-page="alerts"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>Alerts &amp; Privacy</a>
@@ -53,6 +54,8 @@
             <label class="row"><div class="txt"><b>Browser address bar</b><small>Right third, never over tabs</small></div><input type="checkbox" class="sw" data-feature="addrIsland"></label>
             <label class="row"><b>Hide in full screen</b><input type="checkbox" class="sw" data-feature="hideFullscreen"></label>
             <label class="row"><b>Auto-update</b><input type="checkbox" class="sw" data-feature="autoUpdate"></label>
+            <label class="row"><div class="txt"><b>Battery saver</b><small>When the battery runs low, the performance cuts switch on by themselves</small></div><input type="checkbox" class="sw" data-feature="batterySaver"></label>
+            <div class="row" data-needs="batterySaver"><div class="txt"><b>Turns on below</b><small>Percent of battery left</small></div><input type="number" class="num" id="saver-at" min="10" max="100" step="5" inputmode="numeric"></div>
             <div class="row"><b>Position</b><button class="btn" data-general-action="resetPosition">Reset</button></div>
           </div>
         </div>
@@ -65,6 +68,27 @@
               <button class="btn" id="loc-go">Search</button>
             </div>
             <div class="loc-results" id="loc-results" hidden></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PERFORMANCE -->
+      <section id="performance" class="page">
+        <h1>Performance</h1>
+        <div class="group">
+          <div class="card">
+            <label class="row"><div class="txt"><b>Remove blur</b><small>The glass becomes a solid panel — the screen behind is no longer captured</small></div><input type="checkbox" class="sw" data-feature="noBlur"></label>
+            <label class="row"><div class="txt"><b>Remove animations</b><small>Everything stops moving — the island appears and opens instantly</small></div><input type="checkbox" class="sw" data-feature="noAnimations"></label>
+            <label class="row" data-needs-not="noBlur"><div class="txt"><b>Freeze the glass while closed</b><small>The glass only refreshes while you're using the island</small></div><input type="checkbox" class="sw" data-feature="glassFreeze"></label>
+          </div>
+          <p class="hint">Every switch applies immediately — no restart needed.</p>
+        </div>
+        <div class="group">
+          <h2>What each does</h2>
+          <div class="card">
+            <div class="row"><div class="txt"><b>Remove blur</b><small>Swaps the live-capture glass for a plain solid panel — no screen captures at all</small></div></div>
+            <div class="row"><div class="txt"><b>Remove animations</b><small>All motion and transitions are off — shapes change instantly, decorations are hidden, cursor tracking and CPU sampling slow down</small></div></div>
+            <div class="row" data-needs-not="noBlur"><div class="txt"><b>Freeze the glass while closed</b><small>Keeps the live glass, but stops refreshing it while the island sits closed — about one frame a minute as a correction</small></div></div>
           </div>
         </div>
       </section>

@@ -24,13 +24,19 @@ function scanOnce() {
     const ps = spawn(scriptPath(path.join('helper', 'nova-helper.exe')), ['apps'], { windowsHide: true });
     let out = '';
     let errOut = '';
+    ps.on('error', (err) => {
+      console.error(`[apps] spawn failed: ${err.message}`);
+      resolve(false);
+    });
     ps.stdout.setEncoding('utf8');
     ps.stderr.setEncoding('utf8');
     ps.stdout.on('data', (d) => (out += d));
     ps.stderr.on('data', (d) => (errOut += d));
-    ps.on('exit', (code) => {
+    ps.on('close', (code) => {
       try {
-        const list = JSON.parse(out.replace(/^﻿/, '').trim());
+        const clean = out.replace(/^\uFEFF/, '').trim();
+        if (!clean) throw new Error(code === 0 ? 'empty output' : `process exited with code ${code}`);
+        const list = JSON.parse(clean);
         const items = (Array.isArray(list) ? list : [list]).filter((a) => a && a.name && a.id);
         if (!items.length) throw new Error('empty list');
         catalog = items.sort((a, b) => a.name.localeCompare(b.name));

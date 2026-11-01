@@ -3,6 +3,7 @@
 // once the cursor is on the island (hover), the island opens as usual and the eyes are gone.
 (() => {
   const DWELL_MS = 3000;
+  const light = () => state.features.noBlur || state.features.noAnimations || state.features.glassFreeze;
   const eyes = $('.eyes');
   const pupils = [...$$('.eye b')];
   let near = null;
@@ -11,7 +12,7 @@
 
   function apply() {
     const lingered = near && Date.now() - nearSince >= DWELL_MS;
-    const show = feat('novaEyes') && !anchor.vertical && lingered && !state.hover && lastMode === 'idle';
+    const show = feat('novaEyes') && !light() && !anchor.vertical && lingered && !state.hover && lastMode === 'idle';
     island.classList.toggle('eyes', !!show);
   }
 
@@ -47,7 +48,7 @@
     setTimeout(() => eyes.classList.remove('blink'), 130);
   }
   (function loop() {
-    if (island.classList.contains('eyes')) {
+    if (!light() && island.classList.contains('eyes')) {
       blink();
       if (Math.random() < 0.2) setTimeout(blink, 260);
     }

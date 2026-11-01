@@ -164,6 +164,15 @@ body.searching .chip.miss { display: none !important; }
   background: rgba(0, 0, 0, .3); box-shadow: inset 0 0 0 1px var(--stroke); color: #fff; font-size: 13px;
 }
 .row.field input:focus { box-shadow: inset 0 0 0 1px rgba(111, 140, 255, .7); }
+
+/* small numeric field (battery saver percent) */
+.row input.num {
+  width: 76px; height: 32px; padding: 0 12px; border: 0; border-radius: 8px; outline: none;
+  background: rgba(0, 0, 0, .3); box-shadow: inset 0 0 0 1px var(--stroke); color: #fff; font-size: 13px;
+  text-align: right; font-variant-numeric: tabular-nums; flex: none;
+}
+.row input.num::-webkit-inner-spin-button { -webkit-appearance: none; }
+.row input.num:focus { box-shadow: inset 0 0 0 1px rgba(111, 140, 255, .7); }
 .loc-results { display: flex; flex-direction: column; padding: 2px 8px 8px; gap: 2px; }
 .loc-results button { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: 8px; text-align: left; font-size: 13px; }
 .loc-results button:hover { background: rgba(255, 255, 255, .07); }

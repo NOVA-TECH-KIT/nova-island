@@ -176,12 +176,13 @@ svg.s { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: rou
 .v-bar { position: relative; width: 6px; height: 84px; border-radius: 3px; background: rgba(255, 255, 255, .18); overflow: hidden; }
 .v-bar b { position: absolute; left: 0; right: 0; bottom: 0; height: 0; border-radius: 3px; background: #fff; transition: height .15s var(--ease-out); }
 .l-vtoast.charging .ico-bolt, .l-vtoast.low .ico-bolt, .l-vtoast.battery .ico-bolt,
+.l-vtoast.saver .ico-bolt, .l-vtoast.saver-off .ico-bolt,
 .l-vtoast.done .ico-bell, .l-vtoast.vol .ico-vol, .l-vtoast.bright .ico-sun { display: block; }
 .l-vtoast.charging .v-bar b { background: var(--green); }
 .l-vtoast.low .v-bar b { background: var(--red); }
-.l-vtoast.bright .ico-sun { color: var(--yellow); }
+.l-vtoast.bright .ico-sun, .l-vtoast.saver .ico-bolt { color: var(--yellow); }
 .l-vtoast.done .ico-bell { color: var(--orange); }
-.l-vtoast.done .v-bar { display: none; }
+.l-vtoast.done .v-bar, .l-vtoast.saver .v-bar, .l-vtoast.saver-off .v-bar { display: none; }
 #vt-value { font-size: 11px; }
 .v-pr .i-soft { color: #ffd479; }
 .l-vtoast.prayer .ico-moon, .l-vtoast.prayer-soon .ico-moon { display: block; color: #ffd479; }
@@ -216,14 +217,16 @@ svg.s { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: rou
 .l-toast { display: flex; align-items: center; gap: 12px; padding: 0 14px; }
 .l-toast .t-left { flex: 1; }
 .t-ico { width: 17px; height: 17px; display: none; flex: none; }
-.l-toast.charging .ico-bolt, .l-toast.low .ico-bolt, .l-toast.battery .ico-bolt { display: block; }
+.l-toast.charging .ico-bolt, .l-toast.low .ico-bolt, .l-toast.battery .ico-bolt,
+.l-toast.saver .ico-bolt, .l-toast.saver-off .ico-bolt { display: block; }
 .l-toast.done .ico-bell { display: block; color: var(--orange); }
 .l-toast.vol .ico-vol, .l-toast.bright .ico-sun { display: block; }
-.l-toast.bright .ico-sun { color: var(--yellow); }
+.l-toast.bright .ico-sun, .l-toast.saver .ico-bolt { color: var(--yellow); }
 #t-label, #t-value { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 #t-value { min-width: 34px; text-align: right; }
 .l-toast.charging .ico-bolt, .l-toast.charging #t-value { color: var(--green); }
 .l-toast.low .ico-bolt, .l-toast.low #t-value { color: var(--red); }
+.l-toast.saver #t-value { color: var(--yellow); }
 .l-toast.done #t-label { color: var(--orange); }
 
 .t-bar { display: none; flex: 0 0 190px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .18); overflow: hidden; }
@@ -237,7 +240,8 @@ svg.s { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: rou
 .batt b { display: block; height: 100%; width: 50%; border-radius: 2px; background: #fff; transition: width .5s var(--ease-out); }
 .l-toast.charging .batt b { background: var(--green); }
 .l-toast.low .batt b { background: var(--red); }
-.l-toast.done .batt, .l-toast.vol .batt, .l-toast.bright .batt { display: none; }
+.l-toast.done .batt, .l-toast.vol .batt, .l-toast.bright .batt,
+.l-toast.saver .batt, .l-toast.saver-off .batt { display: none; }
 /* prayer reminders */
 .l-toast.prayer .ico-moon, .l-toast.prayer-soon .ico-moon { display: block; color: #ffd479; }
 .l-toast.prayer .batt, .l-toast.prayer-soon .batt { display: none; }
@@ -545,6 +549,27 @@ svg.s { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: rou
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; }
 }
+
+/* ============ performance options ============ */
+/* "Remove blur" and "Remove animations" work on their own (and give the island a shared
+   slowdown of its background work, see the JS); turning both on is the low-end setup. */
+.no-blur .layer { filter: none; will-change: auto; }
+.no-blur .scene-card { filter: none; }
+/* a plain solid panel instead of the live-capture glass */
+.no-blur #bd { display: none; }
+.no-blur .clip { background: rgb(19, 19, 25); }
+.no-blur .tint, .no-blur #island.expanded .tint, .no-blur #island.peek .tint,
+.no-blur #island.reminder .tint, .no-blur #island.moving .tint { background: transparent; }
+
+/* Remove animations: NO motion at all — not just the decorations. The island snaps open,
+   like reduced motion; the decorative layers also stop being painted at all. */
+.no-anim *, .no-anim *::before, .no-anim *::after {
+  animation: none !important;
+  transition-duration: .01ms !important;
+}
+.no-anim .eq i { transform: scaleY(.55); } /* the bars stay visible, standing still */
+.no-anim .glow, .no-anim .m-art-glow, .no-anim .spark { display: none; }
+.no-anim .sc-title.quran { text-shadow: none; }
 
 /* ============ compact: title between art and equalizer ============ */
 #island:not(.vertical).compact.c-wide { --w: 380px; }

@@ -2,6 +2,7 @@ const {
   app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage, globalShortcut, desktopCapturer, shell,
 } = require('electron');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
 
@@ -265,9 +266,13 @@ ipcMain.on('drag-end', () => {
 function updateVisibility() {
   if (!win) return;
   const shouldShow = !userHidden && !(fullscreenHidden && features.get().hideFullscreen);
-  if (shouldShow && !win.isVisible()) win.showInactive();
+  if (shouldShow && !win.isVisible()) {
+    win.showInactive();
+    scheduleCapture(80);
+  }
   if (!shouldShow && win.isVisible()) win.hide();
   send('visibility', shouldShow);
+  schedulePoll();
 }
 
 function createWindow() {
@@ -451,10 +456,10 @@ function findTabUrl(proc, title) {
     ps.on('error', () => resolve(''));
     ps.stdout.setEncoding('utf8');
     ps.stdout.on('data', (d) => (out += d));
-    ps.on('exit', () => {
+    ps.on('close', () => {
       clearTimeout(timer);
       try {
-        const r = JSON.parse(out.replace(/^﻿/, '').trim());
+        const r = JSON.parse(out.replace(/^\uFEFF/, '').trim());
         resolve(r.url || '');
       } catch {
         resolve('');
@@ -505,6 +510,15 @@ ipcMain.handle('mini-open', async (_e, req) => {
 // it sits collapsed, and not at all while hidden; an unchanged picture is not re-sent.
 const CAPTURE_ACTIVE_MS = 700;
 const CAPTURE_IDLE_MS = 3000;
+// Reduced mode: rarer captures at a lower resolution (the renderer blurs it less).
+const CAPTURE_PERF_MS = 1500;
+const CAPTURE_PERF_SCALE = 1 / 4;
+// While any cut is on, background work slows down (the island is being used lightly anyway).
+const reduced = () => !!features.get().noBlur || !!features.get().noAnimations || !!features.get().glassFreeze;
+// With blur removed the glass is a solid panel: the captures would paint nothing.
+const glassSolid = () => !!features.get().noBlur;
+const CAPTURE_FROZEN_MS = 60000; // closed glass with the freeze on: one frame a minute to drift-correct
+
 let capturing = false;
 let captureTimer = null;
 let lastCaptureKey = '';
@@ -513,16 +527,20 @@ function scheduleCapture(ms) {
   clearTimeout(captureTimer);
   captureTimer = setTimeout(async () => {
     await captureBackdrop();
-    scheduleCapture(active || Date.now() < busyUntil ? CAPTURE_ACTIVE_MS : CAPTURE_IDLE_MS);
+    const busy = active || Date.now() < busyUntil;
+    scheduleCapture(reduced()
+      ? (busy ? CAPTURE_PERF_MS : CAPTURE_FROZEN_MS)
+      : (busy ? CAPTURE_ACTIVE_MS : CAPTURE_IDLE_MS));
   }, ms);
 }
 async function captureBackdrop() {
   // skipped while dragging: a capture blocks the main thread and makes the move stutter
-  if (capturing || drag || !win || win.isDestroyed() || !win.isVisible()) return;
+  // (and while the glass is solid: the frame would paint nothing)
+  if (capturing || drag || !win || win.isDestroyed() || !win.isVisible() || glassSolid()) return;
   capturing = true;
   try {
     const display = screen.getDisplayMatching(win.getBounds());
-    const scale = 1 / 3;
+    const scale = reduced() ? CAPTURE_PERF_SCALE : 1 / 3;
     const sources = await desktopCapturer.getSources({
       types: ['screen'],
       thumbnailSize: {
@@ -586,7 +604,15 @@ function setActive(on) {
 const NEAR_PX = 260;
 let nearSent = null;
 function sendNear(x, y) {
-  if (!features.get().novaEyes || !islandRect.width) return;
+  // disabled (feature off, perf mode, no rect yet): also retire a still-shown "near" state once,
+  // otherwise the eyes would linger frozen when perf mode is switched on mid-dwell
+  if (!features.get().novaEyes || reduced() || !islandRect.width) {
+    if (nearSent) {
+      nearSent = null;
+      send('near', null);
+    }
+    return;
+  }
   const dx = Math.round(x - (islandRect.x + islandRect.width / 2));
   const dy = Math.round(y - (islandRect.y + islandRect.height / 2));
   const near = Math.hypot(dx, dy) < NEAR_PX;
@@ -621,6 +647,19 @@ function pollCursor() {
   } else if (!active && !suppressUntilLeave && Date.now() - enteredAt >= HOVER_INTENT_MS) {
     setActive(true);
   }
+}
+
+// The poll is cheap but it is still a wake-up: in performance mode it only runs fast while the
+// cursor is on the island (hover intent needs ~280 ms, so 40 ms there and 120 ms elsewhere).
+let pollTimer = null;
+function schedulePoll() {
+  clearTimeout(pollTimer);
+  const hidden = !win || win.isDestroyed() || !win.isVisible();
+  const ms = hidden ? 600 : reduced() && !inside ? 120 : 40;
+  pollTimer = setTimeout(() => {
+    pollCursor();
+    schedulePoll();
+  }, ms);
 }
 
 // Text inputs (app search) need keyboard focus; the window is otherwise non-focusable.
@@ -774,6 +813,59 @@ ipcMain.on('island-ready', () => log.info('island ready'));
 ipcMain.on('update-install', () => updater.install());
 ipcMain.handle('features-get', () => features.get());
 ipcMain.on('features-set', (_e, patch) => features.set(patch));
+
+// ---- battery saver: the performance cuts are forced on while the battery runs low ----
+// The island's renderer reports battery changes (its navigator.getBattery is the only source
+// for the percentage). The last report is kept, so changing the switch or the threshold
+// re-evaluates immediately instead of waiting for the next percentage step on the battery.
+let saverWas = false;
+let batteryNow = null;
+let evalSaverBusy = false;
+function evalSaver(fromReport) {
+  if (evalSaverBusy) return;
+  if (!batteryNow) return;
+  if (!features.get().batterySaver) {
+    if (saverWas) {
+      saverWas = false;
+      evalSaverBusy = true;
+      try {
+        features.setSaver(false);
+      } finally {
+        evalSaverBusy = false;
+      }
+      send('saver-toggle', false);
+      log.info('battery-saver off: the switch is off');
+    }
+    return;
+  }
+  const level = Number(batteryNow.level);
+  if (!Number.isFinite(level) || level < 0 || level > 1) {
+    log.info(`battery-saver: unusable level from the island: ${batteryNow.level}`);
+    return;
+  }
+  const low = features.get().batterySaverAt / 100; // clamped 10–100 in features.js
+  const recover = Math.min(1, low + 0.1);
+  // on the charger the saver always stops; while discharging it's on below the threshold
+  // (plus the 10-point hysteresis before it turns itself off again)
+  const should = !batteryNow.charging && (saverWas ? level < recover : level <= low);
+  if (fromReport || should !== saverWas) {
+    log.info(`battery-saver: battery ${(level * 100).toFixed(1)}% vs threshold ${(low * 100) | 0}` +
+      `%${batteryNow.charging ? ', plugged in' : ', discharging'} -> ${should ? 'ON' : 'off'}${should === saverWas ? '' : ' (changed)'}`);
+  }
+  if (should === saverWas) return;
+  saverWas = should;
+  evalSaverBusy = true;
+  try {
+    features.setSaver(should);
+  } finally {
+    evalSaverBusy = false;
+  }
+  send('saver-toggle', should);
+}
+ipcMain.on('battery-report', (_e, r) => {
+  batteryNow = r ? { charging: !!r.charging, level: Number(r.level) } : null;
+  evalSaver(true);
+});
 ipcMain.on('features-reset', () => features.reset());
 ipcMain.on('reminder-preview', () => send('reminder-now'));
 ipcMain.handle('general-get', () => generalState());
@@ -856,6 +948,10 @@ ipcMain.on('general-set', (_e, key, value) => {
 });
 let prayerCalc = `${features.get().asrHanafi}|${features.get().hijriAdjust}`;
 let autoUpdate = features.get().autoUpdate;
+let saverKey = `${features.get().batterySaver}|${features.get().batterySaverAt}`;
+// capture rates and the poll follow either cut; a solid/glass switch needs a fresh frame
+const cuts = () => `${features.get().noBlur}|${features.get().noAnimations}|${features.get().glassFreeze}`;
+let cutsWas = cuts();
 features.onChange((f) => {
   if (!f.addrIsland && omni) {
     omni = null;
@@ -875,6 +971,17 @@ features.onChange((f) => {
   if (f.autoUpdate !== autoUpdate) {
     autoUpdate = f.autoUpdate;
     updater.setEnabled(autoUpdate);
+  }
+  if (cuts() !== cutsWas) {
+    cutsWas = cuts();
+    lastCaptureKey = ''; // a fresh frame reaches the island without waiting for the screen to change
+    schedulePoll();
+    scheduleCapture(120); // no-op while the glass is solid; resumes captures when it isn't
+  }
+  const sk = `${f.batterySaver}|${f.batterySaverAt}`;
+  if (sk !== saverKey) {
+    saverKey = sk;
+    evalSaver(); // re-check the battery saver: the switch or its threshold may have changed
   }
   if (!f.clipboardHistory) system.clearClips();
   updateVisibility();
@@ -952,7 +1059,7 @@ app.whenReady().then(() => {
     prefsWindow.send(ch, data);
   });
   apps.init(async () => send('apps', await apps.list()));
-  setInterval(pollCursor, 40);
+  schedulePoll();
   scheduleCapture(300);
   globalShortcut.register('CommandOrControl+Alt+I', () => send('toggle'));
   screen.on('display-metrics-changed', () => layout());

@@ -36,7 +36,7 @@ const feat = (key) => state.features[key] !== false;
 
 // Good news: sparkles fly out of the island's edges.
 function celebrate(colors = ['#ffd479', '#30d158', '#8ab4ff', '#ff6b9d']) {
-  if (!feat('celebrate') || anchor.vertical) return;
+  if (!feat('celebrate') || anchor.vertical || state.features.noAnimations) return;
   const r = island.getBoundingClientRect();
   const cx = r.left + r.width / 2;
   const cy = r.top + r.height / 2;
@@ -178,6 +178,9 @@ bridge.onHover((v) => {
   }
 });
 
+// background work follows any performance cut (see features.js)
+const light = () => !!(state.features.noBlur || state.features.noAnimations || state.features.glassFreeze);
+
 let lastRect = '';
 function reportRect() {
   let r = island.getBoundingClientRect();
@@ -195,7 +198,12 @@ function reportRect() {
     bridge.setRect(rect);
   }
 }
-setInterval(reportRect, 50);
+// A layout read 20 times a second adds up; performance mode only needs to keep pace with hover.
+function reportLoop() {
+  reportRect();
+  setTimeout(reportLoop, light() ? 150 : 50);
+}
+reportLoop();
 
 bridge.onToggle(() => {
   state.pinned = !state.pinned;
@@ -340,16 +348,25 @@ function sizeCanvases() {
 sizeCanvases();
 window.addEventListener('resize', sizeCanvases);
 
+// a solid panel replaces the live glass when blur is off — the capture paints nothing.
+// the newest frame is kept, so switching back to glass repaints instantly.
+let lastShot = null;
+const glassSolid = () => !!state.features.noBlur;
+function paintBackdrop(img) {
+  const { width: w, height: h } = off;
+  offCtx.filter = 'none';
+  offCtx.drawImage(img, 0, 0, w, h);
+  offCtx.filter = 'blur(22px) saturate(180%) brightness(.92)';
+  offCtx.drawImage(img, -24, -24, w + 48, h + 48);
+  fadeFrames = 10;
+  wake(300);
+}
 bridge.onBackdrop((url) => {
+  if (glassSolid()) return; // solid panel: don't even decode the capture
   const img = new Image();
   img.onload = () => {
-    const { width: w, height: h } = off;
-    offCtx.filter = 'none';
-    offCtx.drawImage(img, 0, 0, w, h);
-    offCtx.filter = 'blur(22px) saturate(180%) brightness(.92)';
-    offCtx.drawImage(img, -24, -24, w + 48, h + 48);
-    fadeFrames = 10;
-    wake(300);
+    lastShot = img;
+    paintBackdrop(img);
   };
   img.src = url;
 });
@@ -366,6 +383,8 @@ function placeSegThumb() {
 // fading in, or the open island (tab thumb, media progress). Idle, it stops completely.
 let frameRunning = false;
 let awakeUntil = 0;
+let lastBd = '';
+let lastUi = 0;
 function wake(ms = 900) {
   awakeUntil = Math.max(awakeUntil, performance.now() + ms);
   if (!frameRunning) {
@@ -375,18 +394,30 @@ function wake(ms = 900) {
 }
 
 function frame() {
-  const r = island.getBoundingClientRect();
-  bd.style.transform = `translate(${-r.left}px, ${-r.top}px)`;
+  const now = performance.now();
+  // The glass only has to follow while the island is moving or morphing; reading layout every
+  // frame while it sits open is wasted work, especially on a slow machine.
+  if (state.moving || now < awakeUntil) {
+    const r = island.getBoundingClientRect();
+    const key = `${r.left},${r.top}`;
+    if (key !== lastBd) {
+      // whole pixels only: the captured glass must not shift by subpixels (edge tremble)
+      lastBd = key;
+      bd.style.transform = `translate(${-Math.round(r.left)}px, ${-Math.round(r.top)}px)`;
+    }
+  }
   if (fadeFrames > 0) {
     bdCtx.globalAlpha = fadeFrames === 1 ? 1 : 0.22;
     bdCtx.drawImage(off, 0, 0);
     fadeFrames--;
   }
-  if (lastMode === 'expanded') {
+  // the tab thumb and the media progress need a few updates a second, not a whole frame
+  if (lastMode === 'expanded' && now - lastUi >= (light() ? 200 : 0)) {
+    lastUi = now;
     placeSegThumb();
     tickProgress();
   }
-  if (fadeFrames > 0 || lastMode === 'expanded' || state.moving || performance.now() < awakeUntil) {
+  if (fadeFrames > 0 || lastMode === 'expanded' || state.moving || now < awakeUntil) {
     requestAnimationFrame(frame);
   } else {
     frameRunning = false;
@@ -828,8 +859,16 @@ if (navigator.getBattery) {
       }
       if (b.level > 0.2) lowShown = false;
     });
+    // battery saver (main process decides with hysteresis) listens to these quietly
+    const report = () => bridge.batteryReport({ charging: b.charging, level: b.level });
+    b.addEventListener('chargingchange', report);
+    b.addEventListener('levelchange', report);
+    report();
   });
 }
+bridge.onSaver((on) => {
+  showToast(on ? 'saver' : 'saver-off', 'Battery saver', on ? 'Battery saver is on' : 'Battery saver is off', 0, 3800);
+});
 
 // ---------------- file drag & drop (routes to the shelf) ----------------
 const hasFiles = (e) => Array.from(e.dataTransfer?.types || []).includes('Files');
@@ -1040,7 +1079,13 @@ function refreshTabs() {
 }
 
 function applyFeatures(f) {
+  const before = state.features;
   state.features = f || {};
+  // the two cuts are independent; background work follows either (see reportLoop/frame/system)
+  document.documentElement.classList.toggle('no-blur', !!state.features.noBlur);
+  document.documentElement.classList.toggle('no-anim', !!state.features.noAnimations);
+  // the glass keeps the newest frame: repaint it right away when switching back from the solid panel
+  if (lastShot && before.noBlur && !state.features.noBlur) paintBackdrop(lastShot);
   $$('[data-feat]').forEach((el) => el.classList.toggle('off', !feat(el.dataset.feat)));
   if ($('.info-slide.on')?.classList.contains('off')) showSlide(0);
   refreshTabs();
