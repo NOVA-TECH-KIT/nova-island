@@ -1,0 +1,62 @@
+:root { --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', sans-serif; --accent: #4b8eff; --accent-2: #7db5ff; }
+body { isolation: isolate; background: transparent; color: var(--text); --text-1: var(--text); --text-2: color-mix(in srgb, var(--text) 70%, transparent); --text-3: color-mix(in srgb, var(--text) 52%, transparent); --panel: var(--glass); --stroke: var(--sep); }
+#flint-wall { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+#flint-wall svg { width: 100%; height: 100%; display: block; }
+.titlebar, .side, .card, .chip, .seg, .search {
+  position: relative;
+  background: radial-gradient(260px circle at var(--gx, -400px) var(--gy, -400px), var(--glint), transparent 70%), linear-gradient(172deg, var(--sheen), transparent 34%), var(--glass);
+  backdrop-filter: blur(5.5px) saturate(170%);
+  box-shadow: var(--depth), var(--shadow);
+}
+.titlebar::before, .side::before, .card::before, .chip::before, .seg::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; padding: 1.25px;
+  background: conic-gradient(from 300deg, var(--rim-hi), var(--rim-lo) 55deg, transparent 90deg, var(--rim-lo) 140deg, var(--rim-mid) 180deg, var(--rim-lo) 220deg, transparent 270deg, var(--rim-lo) 315deg, var(--rim-hi));
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+}
+.titlebar { height: 50px; margin: 12px 12px 0; padding-left: 18px; border-radius: 24px; --glass: var(--glass-chrome); }
+.titlebar, .side { backdrop-filter: blur(3.2px) saturate(160%); }
+.logo { background: var(--lens); box-shadow: var(--lens-glow); border-radius: 50%; }
+.body { padding: 12px; gap: 10px; }
+.side { width: 205px; padding: 14px 12px; border-radius: 26px; --glass: var(--glass-chrome); }
+.side a { z-index: 1; height: 39px; border-radius: 18px; color: var(--text-2); }
+.side a.on, .side a:hover { color: var(--text); background: transparent; }
+.side a.on::before { display: none; }
+.nav-lens, .prefs-lens { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 0; border-radius: 999px; background: var(--lens); box-shadow: var(--lens-glow); }
+.content { padding: 18px 16px 30px; }
+.page { animation: none; }
+.card { border-radius: 24px; overflow: hidden; }
+.row { min-height: 52px; padding: 10px 16px; }
+.row + .row { box-shadow: inset 0 1px var(--sep); }
+.row b, .txt b { font-weight: 600; }
+h1 { font-size: 30px; font-weight: 650; letter-spacing: -.035em; }
+h2 { letter-spacing: .08em; margin-left: 8px; }
+.group + .group { margin-top: 24px; }
+.btn, .search, .stepper { border-radius: 999px; }
+.btn { background: linear-gradient(180deg, var(--gel-hi), var(--gel-lo)); box-shadow: inset 0 1px 1px var(--gel-rim), inset 0 -1px 2px var(--gel-under), inset 0 0 0 .5px var(--gel-edge), 0 4px 10px -6px #0a143c4d; color: var(--text); }
+.btn.accent { background: linear-gradient(180deg, #ffffff57, #ffffff1a 48%, transparent 52%), linear-gradient(180deg, color-mix(in srgb, var(--accent) 82%, white), var(--accent) 70%); color: white; }
+.sw { background: var(--fill); box-shadow: inset 0 0 0 1px var(--sep); }
+.sw::after { background: var(--lens); box-shadow: var(--lens-glow); }
+.sw:checked { background: #2fb350; }
+.win-btns button { width: 32px; height: 32px; border-radius: 999px; }
+.win-btns .close { color: #fff; background: #c52d22; box-shadow: inset 0 1px #ffffff45, 0 2px 5px #0003; }
+.win-btns .close:hover { background: #df372b; }
+.chip { border-radius: 20px; }
+.seg { position: relative; border-radius: 999px; background: var(--fill); box-shadow: none; }
+.seg button { position: relative; z-index: 1; border-radius: 999px; }
+.seg button[aria-checked="true"] { background: transparent; color: var(--text); }
+.search input, .row.field input { color: var(--text); }
+.row.field input { background: var(--well); border-radius: 999px; }
+.side-foot { position: relative; z-index: 1; }
+.wall-options { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 10px; }
+.wall-choice { position: relative; aspect-ratio: 1; border-radius: 20px; padding: 0; overflow: hidden; box-shadow: var(--depth), var(--shadow); outline: 1px solid var(--sep); outline-offset: 0; transition: outline .2s; }
+.wall-choice svg { width: 100%; height: 100%; }
+#flint-wall svg, .wall-choice svg { stroke: none; stroke-width: 0; }
+.wall-choice span { position: absolute; left: 4px; right: 4px; bottom: 4px; padding: 3px; border-radius: 99px; background: #10101888; color: white; font-size: 10px; }
+.wall-choice[aria-pressed="true"] { outline: 2px solid var(--accent); outline-offset: 3px; }
+.lg-solid .titlebar, .lg-solid .side, .lg-solid .card, .lg-solid .chip { background: var(--glass-solid); backdrop-filter: none; }
+/* Keep the identical frost/tint during moving clip masks. Restore refraction
+   when the pane settles, so large SVG surfaces do not reraster every frame. */
+body.settings-in-motion:not(.lg-solid) .page .card,
+body.settings-in-motion:not(.lg-solid) .page .chip { backdrop-filter: blur(5.5px) saturate(170%) !important; }
+body.settings-in-motion:not(.lg-solid) .side { backdrop-filter: blur(3.2px) saturate(160%) !important; }
+@media (max-width: 800px) { .side { width: 185px; } .content { padding: 14px 8px 24px; } .wall-options { gap: 6px; } }

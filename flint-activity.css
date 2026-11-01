@@ -1,0 +1,29 @@
+/* Reference focus capsule: 204x38, ring / label / time. Optical layer remains glass. */
+#island:not(.vertical):not(.addr-slim):not(.addr-line).compact.activity-timer { --w: 204px; --h: 38px; --r: 19px; }
+.activity-pill { display: none; }
+#island:not(.vertical) .l-compact.timer { padding: 0 14px; }
+#island:not(.vertical) .l-compact.timer > .side, #island:not(.vertical) .l-compact.timer > .c-title { display: none; }
+#island:not(.vertical) .l-compact.timer .activity-pill { display: flex; align-items: center; gap: 8px; width: 100%; font-size: 14px; line-height: 1; }
+.activity-ring { width: 22px; height: 22px; flex: none; fill: none; transform: rotate(-90deg); }
+.activity-ring circle { fill: none; stroke: #ffb340; stroke-width: 2.5; }
+.activity-ring .track { opacity: .25; }
+.activity-ring .progress { stroke-dasharray: 100; stroke-linecap: round; }
+.activity-label { flex: 1; font-weight: 600; color: var(--text-1); }
+.activity-time { font-weight: 650; color: #ffb340; font-variant-numeric: tabular-nums; }
+[data-theme="light"] .activity-time { color: #946000; }
+[data-theme="light"] .activity-ring circle { stroke: #946000; }
+[data-theme="light"] #island { --orange: #985a00; }
+#island.timer-paused .activity-time { color: var(--text-2); }
+#island.activity-presenting:not(.vertical):not(.activity-attached) { --tl: var(--r); --tr: var(--r); --bl: var(--r); --br: var(--r); }
+#island.activity-attached:not(.vertical) { --tl: 0px; --tr: 0px; }
+#island:not(.vertical).toast { --w: 384px; --h: 62px; --r: 31px; }
+/* Reference thick material tint behind dense controls; preserve clear optical rim. */
+[data-theme="dark"] #island { --glass-tint-strong: rgb(26 26 30 / .86); }
+[data-theme="dark"][data-glass="clear"] #island { --glass-tint-strong: rgb(26 26 30 / .76); }
+[data-theme="light"] #island { --glass-tint-strong: rgb(250 252 255 / .86); }
+[data-theme="light"][data-glass="clear"] #island { --glass-tint-strong: rgb(250 252 255 / .76); }
+#island.activity-timer.compact .tint { background: color-mix(in srgb, var(--glass-solid) 65%, transparent); }
+#island .ring-label span { color: var(--text-2); font-size: 12px; font-weight: 550; }
+#island .presets button, #island .tm-actions button { font-weight: 650; color: var(--text-1); }
+#island .presets button { background: var(--well); box-shadow: inset 0 1px #ffffff26, inset 0 0 0 .5px var(--sep); }
+#island .sub, #island .i-soft { color: var(--text-2); }

@@ -1,10 +1,13 @@
 <!doctype html>
-<html lang="en" dir="ltr">
+<html lang="en" dir="ltr" data-theme="dark" data-wall="smoke" data-glass="frosted">
 <head>
   <meta charset="utf-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; img-src 'self' data:">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:">
   <title>Nova Island Settings</title>
   <link rel="stylesheet" href="prefs.css">
+  <link rel="stylesheet" href="../flint-theme.css">
+  <link rel="stylesheet" href="../flint-motion.css">
+  <link rel="stylesheet" href="flint-prefs.css">
 </head>
 <body>
   <header class="titlebar">
@@ -31,11 +34,21 @@
       <a href="#alerts" data-page="alerts"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>Alerts &amp; Privacy</a>
       <a href="#connections" data-page="connections"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Connections</a>
       <a href="#support" data-page="support"><svg viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>Support</a>
+      <a href="#appearance" data-page="appearance"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18Z"/></svg>Appearance</a>
       <p class="side-foot"><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>I</kbd> opens the island<br><span id="version"></span></p>
     </nav>
 
     <main class="content" id="content">
       <p class="no-results" id="no-results" hidden>No matching settings</p>
+      <section id="appearance" class="page">
+        <h1>Appearance</h1>
+        <p class="lead">Glass, light and motion.</p>
+        <div class="group"><h2>Material</h2><div class="card">
+          <div class="row"><div class="txt"><b>Theme</b><small>Shared with the island</small></div><div class="seg" role="radiogroup" aria-label="Theme"><button role="radio" data-appearance="theme" data-value="light">Light</button><button role="radio" data-appearance="theme" data-value="dark">Dark</button></div></div>
+          <div class="row"><div class="txt"><b>Glass</b><small>Choose the tint density</small></div><div class="seg" role="radiogroup" aria-label="Glass"><button role="radio" data-appearance="glass" data-value="frosted">Frosted</button><button role="radio" data-appearance="glass" data-value="clear">Clear</button></div></div>
+        </div></div>
+        <div class="group"><h2>Wallpaper</h2><div class="wall-options" id="wall-options" role="group" aria-label="Wallpaper"></div></div>
+      </section>
 
       <!-- GENERAL -->
       <section id="general" class="page">
@@ -261,6 +274,11 @@
     </main>
   </div>
   <div class="saved" id="saved" role="status">Saved</div>
+  <script src="../vendor/gsap.min.js"></script>
+  <script src="../flint-motion.js"></script>
+  <script src="../liquid-glass.js"></script>
+  <script src="../flint-wall.js"></script>
+  <script src="flint-prefs.js"></script>
   <script src="prefs.js"></script>
 </body>
 </html>

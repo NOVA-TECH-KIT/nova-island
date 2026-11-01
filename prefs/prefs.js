@@ -88,11 +88,19 @@ $('#rm-preview').addEventListener('click', () => api.previewReminder());
 
 // ---- general (lives in the main process) ----
 function showGeneral(g) {
+  if (!g) return;
+  for (const [key, fallback] of Object.entries({ theme: 'dark', glass: 'frosted', wall: 'smoke' })) document.documentElement.dataset[key] = g[key] || fallback;
+  $$('[data-appearance]').forEach(b => {
+    const selected = document.documentElement.dataset[b.dataset.appearance] === b.dataset.value;
+    b.setAttribute(b.dataset.appearance === 'wall' ? 'aria-pressed' : 'aria-checked', String(selected));
+  });
+  window.PrefsGlass.controls();
   $$('[data-general]').forEach((el) => { el.checked = !!g[el.dataset.general]; });
   $$('[data-orient]').forEach((b) => b.setAttribute('aria-checked', String((b.dataset.orient === 'v') === !!g.vertical)));
   if (g.version) $('#version').textContent = `Version ${g.version}`;
 }
 $$('[data-support]').forEach((b) => b.addEventListener('click', () => api.openSupport(b.dataset.support)));
+$$('[data-appearance]').forEach(b => b.addEventListener('click', () => { api.setGeneral(b.dataset.appearance, b.dataset.value); saved(); }));
 $$('[data-general]').forEach((el) => el.addEventListener('change', () => {
   api.setGeneral(el.dataset.general, el.checked);
   saved();
@@ -240,9 +248,14 @@ function remembered() {
 const links = [...$$('.side a')];
 function showPage(id) {
   if (!document.getElementById(id)) id = 'general';
-  $$('.page').forEach((p) => p.classList.toggle('on', p.id === id));
+  const next=document.getElementById(id),previous=document.querySelector('.page.on');
+  if(previous===next){window.PrefsGlass.refresh();return;}
+  if(previous){window.FlintMotion.clear(previous);previous.classList.remove('on');}
+  next.classList.add('on');
   links.forEach((a) => a.classList.toggle('on', a.dataset.page === id));
   $('#content').scrollTop = 0;
+  window.FlintMotion.settingsIn(document.getElementById(id));
+  window.PrefsGlass.refresh();
   try { localStorage.setItem(PAGE_KEY, id); } catch {}
 }
 links.forEach((a) => a.addEventListener('click', (e) => {

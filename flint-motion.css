@@ -1,0 +1,19 @@
+.flint-ripple-wrap { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; overflow: hidden; z-index: 3; }
+.flint-ripple { position: absolute; top: -10px; left: -10px; width: 20px; height: 20px; border-radius: 50%; background: #ffffff80; }
+button, .side a, .chip { position: relative; }
+#island .seg-thumb { top: 0; bottom: auto; transition: none; }
+#island .tab, #island .tab span { transition: color .18s, opacity .2s; }
+#island .view.active { animation: none; }
+#island, #island.moving, #island.shrinking { transition: none; }
+.flint-char-wrap { display: inline-block; overflow: hidden; vertical-align: bottom; }
+.flint-char { display: inline-block; white-space: pre; }
+#island.expanded { --r: 44px; }
+#island .clip > .layer { inset: 0 auto auto; width: var(--w); height: var(--h); left: calc((100% - var(--w)) / 2); filter: none; transition: none; }
+#island .lg-optics, #island .tint, #island .glow, #island .sheen, #island .skin {
+  inset: 0 auto auto; top: var(--shape-top, 0px); left: var(--shape-left, 0px); width: var(--shape-w, 100%); height: var(--shape-h, 100%); border-radius: var(--shape-radius, inherit);
+}
+#island .clip > .layer { top: calc((100% - var(--h)) / 2); }
+@media (prefers-reduced-motion: reduce) {
+  #island, #island .clip, #island .layer, #island .tab span { transition-duration: 0s !important; }
+  .flint-ripple-wrap { display: none; }
+}

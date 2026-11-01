@@ -4,6 +4,7 @@ const {
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
+const { gsap: dockMotion } = require('./vendor/gsap.min.js');
 
 // One data folder for the installed app ("Dynamic Nova") and dev runs ("dynamic-nova"), so
 // settings, apps and caches carry over, and the single-instance lock covers both. Must run
@@ -29,6 +30,8 @@ const updater = require('./updater');
 // Keep our own windows (the mini player) out of Windows' media sessions, so the island and
 // the per-app commands keep targeting the browser tab rather than the mini player.
 app.commandLine.appendSwitch('disable-features', 'HardwareMediaKeyHandling');
+// Explicitly retain capture exclusion in Windows remote sessions as well.
+if (process.platform === 'win32') app.commandLine.appendSwitch('enable-features', 'AllowWindowCaptureExclusionInRemoteSessions,WebRtcAllowWgcScreenCapturer');
 
 const WIN_W = 640;
 const WIN_H = 320;
@@ -41,7 +44,7 @@ let quitting = false;
 let userHidden = false;
 let fullscreenHidden = false;
 let prefs = Object.assign(
-  { ax: null, ay: null, docked: false, vertical: false, side: 'right' },
+  { ax: null, ay: null, docked: false, vertical: false, side: 'right', theme: 'dark', glass: 'frosted', wall: 'smoke' },
   settings.load('settings.json', {})
 );
 
@@ -58,6 +61,58 @@ const V_PILL_HALF_H = 124;
 
 let anchor = null;
 let lastLayout = '';
+let activityPresentation = null;
+function stopActivityPresentation(restore = true) {
+  if (!activityPresentation) return;
+  activityPresentation.timeline.kill();activityPresentation=null;
+  send('presentation',{active:false,attached:false});
+  if(restore){lastLayout='';layout();}
+}
+ipcMain.on('activity-mode',(event,mode)=>{
+  if(!win || win.isDestroyed() || event.sender!==win.webContents)return;
+  if(mode==='expanded' && activityPresentation){activityPresentation.timeline.pause();return;}
+  if(!['compact','toast','peek','reminder'].includes(mode) || prefs.vertical || drag){stopActivityPresentation();return;}
+  if(activityPresentation){
+    if(activityPresentation.mode===mode){activityPresentation.timeline.resume();return;}
+    stopActivityPresentation(false);
+  }
+  const bounds=win.getBounds();
+  const display=screen.getDisplayMatching(bounds).bounds;
+  const floatingY=Math.max(bounds.y,display.y+24-islandRect.y);
+  const position={y:bounds.y};
+  const update=()=>{
+    if(!win || win.isDestroyed())return;
+    const y=Math.round(position.y);
+    if(!Number.isFinite(y))return;
+    win.setPosition(bounds.x,y);
+    captureBackdrop();
+  };
+  const timeline=dockMotion.timeline({paused:true});
+  activityPresentation={timeline,mode};
+  send('presentation',{active:true,attached:false});
+  // First reveal a complete oval away from the edge, then give it time to read.
+  timeline.to(position,{y:floatingY,duration:bounds.y===floatingY?0:.35,ease:'power3.out',onUpdate:update})
+    .to(position,{y:floatingY,duration:1.25})
+    .to(position,{y:()=>display.y-islandRect.y,duration:.9,ease:'power3.inOut',onUpdate:update,
+      onComplete:()=>send('presentation',{active:true,attached:true})});
+  timeline.play();
+});
+let nativeGlass = null;
+let glassCaptureReady = process.platform !== 'win32';
+if (process.platform === 'win32') {
+  try { nativeGlass = require('./helper/glass-capture.node'); }
+  catch (err) { console.warn('[glass] native capture exclusion unavailable:', err.message); }
+}
+function excludeGlassWindow() {
+  if (!win || win.isDestroyed()) return;
+  win.setContentProtection(true);
+  if (nativeGlass?.exclude) {
+    const actual = nativeGlass.exclude(win.getNativeWindowHandle());
+    glassCaptureReady = actual === 17;
+    if (actual !== 17) console.warn('[glass] OS capture exclusion failed:', actual);
+    else log.info('glass capture exclusion verified: WDA_EXCLUDEFROMCAPTURE');
+  }
+}
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
@@ -138,6 +193,7 @@ function layoutAddressBar() {
 
 function layout() {
   if (!win || !anchor) return;
+  if(activityPresentation && !prefs.vertical && !drag)return;
   // not while the user drags the island somewhere else
   if (omni && !drag && omniAllowed()) {
     layoutAddressBar();
@@ -199,6 +255,7 @@ function savePosition() {
 }
 
 function resetPosition() {
+  stopActivityPresentation(false);
   prefs.docked = false;
   prefs.vertical = false;
   prefs.placed = false;
@@ -211,6 +268,7 @@ function resetPosition() {
 // Switch between the horizontal island and a vertical one docked to the nearest side.
 function setVertical(on) {
   if (!anchor || on === prefs.vertical) return;
+  stopActivityPresentation(false);
   const b = screen.getDisplayNearestPoint({ x: Math.round(anchor.x), y: Math.round(anchor.y) }).bounds;
   if (on) {
     prefs.side = anchor.x < b.x + b.width / 2 ? 'left' : 'right';
@@ -237,6 +295,11 @@ let drag = null;
 let dragFrom = null;
 ipcMain.on('drag-start', () => {
   if (!win || drag || !anchor) return;
+  if(activityPresentation){
+    const b=win.getBounds();
+    anchor={x:b.x+islandRect.x+islandRect.width/2,y:b.y+islandRect.y};
+    stopActivityPresentation(false);
+  }
   const p = screen.getCursorScreenPoint();
   dragFrom = { ...anchor };
   // grab the (shrinking) pill near where it was pressed so it stays under the cursor
@@ -337,7 +400,11 @@ function createWindow() {
     lastLayout = '';
     layout();
   });
-  win.once('ready-to-show', () => win.showInactive());
+  win.once('ready-to-show', () => {
+    win.showInactive();
+  });
+  // Reapply after each show, including recovery from fullscreen/hidden mode.
+  win.on('show', excludeGlassWindow);
 }
 
 // --- system bridge: helper/nova-helper.exe (SMTC media, volume, brightness, fullscreen,
@@ -551,7 +618,7 @@ ipcMain.handle('mini-open', async (_e, req) => {
 
 // --- glass backdrop ---
 // CSS backdrop-filter cannot see other windows, so capture the screen area under the
-// island at low resolution and let the renderer blur it.
+// island in display coordinates; the renderer applies Flint's optical filter.
 // The backdrop is re-captured often while the island is open or changing shape, rarely while
 // it sits collapsed, and not at all while hidden; an unchanged picture is not re-sent.
 const CAPTURE_ACTIVE_MS = 700;
@@ -560,6 +627,20 @@ let capturing = false;
 let captureTimer = null;
 let lastCaptureKey = '';
 let busyUntil = 0; // shape changed recently
+ipcMain.handle('backdrop-source', async (event) => {
+  if (!win || win.isDestroyed() || event.sender !== win.webContents) return null;
+  const display = screen.getDisplayMatching(win.getBounds());
+  const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } });
+  const source = sources.find(s => s.display_id === String(display.id));
+  return source ? { id: source.id, displayId: display.id, bounds: display.bounds, scaleFactor: display.scaleFactor } : null;
+});
+ipcMain.on('backdrop-diagnostic', (event, url) => {
+  if (!process.argv.includes('--glass-diagnostics') || !win || event.sender !== win.webContents) return;
+  if (typeof url === 'string' && url.startsWith('data:image/png;base64,') && url.length < 8e6) {
+    fs.writeFileSync(path.join(app.getPath('userData'), 'glass-input.png'), Buffer.from(url.split(',')[1], 'base64'));
+    fs.writeFileSync(path.join(app.getPath('userData'), 'glass-input.json'), JSON.stringify({ bounds: win.getBounds(), islandRect, backend: 'desktop-media' }));
+  }
+});
 function scheduleCapture(ms) {
   clearTimeout(captureTimer);
   captureTimer = setTimeout(async () => {
@@ -569,35 +650,16 @@ function scheduleCapture(ms) {
 }
 async function captureBackdrop() {
   // skipped while dragging: a capture blocks the main thread and makes the move stutter
-  if (capturing || drag || !win || win.isDestroyed() || !win.isVisible()) return;
+  if (capturing || drag || !win || win.isDestroyed() || !win.isVisible() || !glassCaptureReady) return;
   capturing = true;
   try {
-    const display = screen.getDisplayMatching(win.getBounds());
-    const scale = 1 / 3;
-    const sources = await desktopCapturer.getSources({
-      types: ['screen'],
-      thumbnailSize: {
-        width: Math.round(display.bounds.width * scale),
-        height: Math.round(display.bounds.height * scale),
-      },
-    });
-    const src = sources.find((s) => s.display_id === String(display.id)) || sources[0];
-    if (!src || src.thumbnail.isEmpty()) return;
-    const k = src.thumbnail.getSize().width / display.bounds.width;
     const b = win.getBounds();
-    const crop = src.thumbnail.crop({
-      x: Math.round((b.x - display.bounds.x) * k),
-      y: Math.round((b.y - display.bounds.y) * k),
-      width: Math.round(b.width * k),
-      height: Math.round(b.height * k),
-    });
-    // cheap fingerprint: sample the small bitmap instead of hashing all of it
-    const bmp = crop.toBitmap();
-    let key = `${bmp.length}`;
-    for (let i = 0; i < bmp.length; i += 997) key += bmp[i].toString(36);
+    const display = screen.getDisplayMatching(b);
+    const geometry = { bounds: b, display: { id: display.id, bounds: display.bounds }, diagnostics: process.argv.includes('--glass-diagnostics') };
+    const key = JSON.stringify(geometry);
     if (key === lastCaptureKey) return;
     lastCaptureKey = key;
-    send('backdrop', crop.toDataURL());
+    send('backdrop-geometry', geometry);
   } catch (err) {
     console.error('[backdrop]', err.message);
   } finally {
@@ -615,7 +677,10 @@ let active = false;
 let enteredAt = 0;
 let suppressUntilLeave = false;
 
-ipcMain.on('island-rect', (_e, r) => {
+ipcMain.on('island-rect', (event, r) => {
+  if (!win || event.sender !== win.webContents || !r ||
+      !['x', 'y', 'width', 'height'].every(key => Number.isFinite(r[key])) ||
+      r.width < 0 || r.height < 0) return;
   const resized = r.width !== islandRect.width || r.height !== islandRect.height;
   islandRect = r;
   if (resized) {
@@ -637,7 +702,7 @@ function setActive(on) {
 const NEAR_PX = 260;
 let nearSent = null;
 function sendNear(x, y) {
-  if (!features.get().novaEyes || !islandRect.width) return;
+  if (!islandRect.width) return;
   const dx = Math.round(x - (islandRect.x + islandRect.width / 2));
   const dy = Math.round(y - (islandRect.y + islandRect.height / 2));
   const near = Math.hypot(dx, dy) < NEAR_PX;
@@ -651,10 +716,24 @@ function sendNear(x, y) {
   send('near', nearSent);
 }
 
+let lastMouseClick = 0;
+let mouseMonitorReported = false;
 function pollCursor() {
   if (!win || win.isDestroyed() || !win.isVisible() || drag) return;
   const p = screen.getCursorScreenPoint();
   const b = win.getBounds();
+  const click = nativeGlass?.mouseClick?.();
+  if (click?.available && !mouseMonitorReported) { mouseMonitorReported=true;log.info('outside-click monitor ready'); }
+  if (click && click.serial !== lastMouseClick) {
+    lastMouseClick = click.serial;
+    const pt = screen.screenToDipPoint({ x: click.x, y: click.y });
+    const cx = pt.x - b.x, cy = pt.y - b.y;
+    if ((active || islandRect.height > 40) && (cx < islandRect.x || cy < islandRect.y || cx > islandRect.x + islandRect.width || cy > islandRect.y + islandRect.height)) {
+      suppressUntilLeave = true;
+      send('outside-click');
+      log.info('outside-click dismissed island');
+    }
+  }
   const x = p.x - b.x;
   const y = p.y - b.y;
   sendNear(x, y);
@@ -814,14 +893,15 @@ ipcMain.on('context-menu', () => appMenu().popup({ window: win }));
 // --- Settings window ---
 // General options live in main (position, startup); feature switches live in features.js.
 function generalState() {
-  return { shown: !userHidden, vertical: !!prefs.vertical, startWithWindows: startsWithWindows(), version: app.getVersion() };
+  return { shown: !userHidden, vertical: !!prefs.vertical, startWithWindows: startsWithWindows(), version: app.getVersion(), theme: prefs.theme, glass: prefs.glass, wall: prefs.wall };
 }
 function notifyGeneral() {
   prefsWindow.send('general', generalState());
+  send('general', generalState());
 }
 ipcMain.on('open-settings', () => prefsWindow.open());
 // the island page reports once all its scripts ran (an early error would stop it before this)
-ipcMain.on('island-ready', () => log.info('island ready'));
+ipcMain.on('island-ready', () => { log.info('island ready'); lastCaptureKey = ''; scheduleCapture(300); });
 ipcMain.on('update-install', () => updater.install());
 ipcMain.handle('features-get', () => features.get());
 ipcMain.on('features-set', (_e, patch) => features.set(patch));
@@ -912,6 +992,10 @@ ipcMain.on('general-set', (_e, key, value) => {
   } else if (key === 'vertical') setVertical(on);
   else if (key === 'startWithWindows') setStartWithWindows(on);
   else if (key === 'resetPosition') resetPosition();
+  else if ((key === 'theme' && ['light','dark'].includes(value)) || (key === 'glass' && ['clear','frosted'].includes(value)) || (key === 'wall' && ['ash','sand','sage','aurora','smoke','tide','bloom','ember','grove','dusk'].includes(value))) {
+    prefs[key] = value;
+    settings.save('settings.json', prefs);
+  }
   notifyGeneral();
 });
 let prayerCalc = `${features.get().asrHanafi}|${features.get().hijriAdjust}`;
@@ -1001,6 +1085,7 @@ app.whenReady().then(() => {
   if (process.argv.includes('--setup')) runSetup();
   createWindow();
   buildTray();
+  if (process.argv.includes('--settings')) prefsWindow.open();
   startMedia();
   system.start(send);
   prayer.start(send, system.getLocation);
@@ -1036,6 +1121,7 @@ app.whenReady().then(() => {
 });
 
 app.on('before-quit', () => {
+  stopActivityPresentation(false);
   quitting = true;
   globalShortcut.unregisterAll();
   if (media) media.kill();

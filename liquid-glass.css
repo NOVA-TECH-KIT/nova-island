@@ -1,0 +1,68 @@
+/* Flint/PANE dark chrome tokens and material layers, scoped to Nova's shell.
+   Geometry, content layers and interactions remain owned by style.css. */
+#island {
+  --glass-tint: var(--glass-chrome, rgb(28 28 38 / .36));
+  --glass-tint-strong: var(--glass-chrome, rgb(28 28 38 / .36));
+  --lg-rim-hi: var(--rim-hi, #ffffffd9);
+  --lg-rim-mid: var(--rim-mid, #ffffff73);
+  --lg-rim-lo: var(--rim-lo, #ffffff1f);
+  --lg-sheen: var(--sheen, #ffffff1a);
+  --lg-glint: var(--glint, #ffffff21);
+  --lg-depth: var(--depth);
+  --text-1: var(--text, #fff);
+  --text-2: color-mix(in srgb, var(--text, #fff) 70%, transparent);
+  --text-3: color-mix(in srgb, var(--text, #fff) 48%, transparent);
+}
+.lg-optics {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* Reference CSS fallback while the first displacement map is encoding. */
+  filter: blur(14px) saturate(175%) brightness(.95);
+}
+#island .sheen {
+  background: radial-gradient(260px circle at var(--gx, -400px) var(--gy, -400px), var(--lg-glint), transparent 70%),
+    linear-gradient(172deg, var(--lg-sheen) 0%, transparent 34%);
+  box-shadow: var(--lg-depth);
+}
+#island .sheen::before, #island .seg::before, #island .seg-thumb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  padding: 1.25px;
+  background: conic-gradient(from 300deg, var(--lg-rim-hi) 0deg, var(--lg-rim-lo) 55deg,
+    transparent 90deg, var(--lg-rim-lo) 140deg, var(--lg-rim-mid) 180deg,
+    var(--lg-rim-lo) 220deg, transparent 270deg, var(--lg-rim-lo) 315deg, var(--lg-rim-hi) 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+#island.dropping .sheen { box-shadow: var(--lg-depth), inset 0 0 0 2px rgba(var(--accent-rgb), .9); }
+#island .seg {
+  background: radial-gradient(260px circle at var(--gx, -400px) var(--gy, -400px), var(--lg-glint), transparent 70%),
+    linear-gradient(172deg, var(--lg-sheen), transparent 34%), rgb(28 28 38 / .24);
+  backdrop-filter: blur(3.2px) saturate(160%);
+  box-shadow: var(--lg-depth), 0 1px 2px #0000004d, 0 8px 16px -10px #000000bf;
+}
+#island .seg-thumb {
+  background: radial-gradient(140px circle at var(--gx, -400px) var(--gy, -400px), #ffffff38, transparent 70%),
+    linear-gradient(180deg, #ffffff4d, #ffffff1a);
+  backdrop-filter: blur(4.5px) saturate(170%);
+  box-shadow: inset 0 1px 1px #ffffff8c, inset 0 -2px 5px #ffffff1f,
+    inset 0 0 0 .5px #ffffff4d, 0 8px 18px -8px #0009;
+}
+/* Accessibility fallback changes only the optical layers, never sizing/display
+   of the shell or content (the reference's grid fallback is unsuitable here). */
+#island.lg-solid .lg-optics { visibility: hidden; }
+#island.lg-solid .tint { background: var(--glass-solid, #1c1c20); }
+#island.lg-solid .sheen { background: linear-gradient(172deg, var(--lg-sheen), transparent 40%); }
+#island.lg-solid .seg { backdrop-filter: none; background: #23232c; }
+#island.lg-solid .seg-thumb { backdrop-filter: none; background: #454550; }
+@media (prefers-reduced-transparency: reduce) {
+  #island .lg-optics { visibility: hidden; }
+  #island .tint { background: #1c1c20; }
+}

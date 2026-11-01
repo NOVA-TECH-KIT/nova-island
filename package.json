@@ -4,6 +4,8 @@
   "description": "A living island for your Windows desktop",
   "main": "nova.js",
   "scripts": {
+    "test": "node --test tests/glass.test.cjs tests/presentation.test.cjs",
+    "test:browser": "node scripts/test-browser.cjs",
     "start": "electron .",
     "dist": "electron-builder --win nsis",
     "dist:portable": "electron-builder --win portable"
@@ -36,7 +38,16 @@
       "!setup-log.txt",
       "!**/*.map",
       "!helper/*.cs",
-      "!helper/*.cmd"
+      "!helper/*.cmd",
+      "!helper/*.c",
+      "!helper/*.obj",
+      "!helper/*.lib",
+      "!helper/*.exp",
+      "!.npm-cache/**",
+      "!tests/**",
+      "!docs/**",
+      "!scripts/**",
+      "!.test-artifacts/**"
     ],
     "publish": {
       "provider": "github",
@@ -44,7 +55,8 @@
       "repo": "nova-island"
     },
     "asarUnpack": [
-      "helper/nova-helper.exe"
+      "helper/nova-helper.exe",
+      "helper/glass-capture.node"
     ],
     "win": {
       "target": [

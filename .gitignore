@@ -1,4 +1,9 @@
 node_modules/
+.npm-cache/
+.test-artifacts/
+helper/*.obj
+helper/*.lib
+helper/*.exp
 dist/
 *.log
 __pycache__/
