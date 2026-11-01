@@ -107,19 +107,29 @@ function currentMode() {
 let lastMode = '';
 function render() {
   const mode = currentMode();
+  if(!island.classList.contains('vertical') && ['compact','toast','peek','reminder'].includes(mode)) {
+    island.classList.add('activity-presenting');
+    if(mode!==lastMode && lastMode!=='expanded')island.classList.remove('activity-attached');
+  }
+  else if(mode==='idle') island.classList.remove('activity-presenting','activity-attached');
+  let morphFrom = null;
   if (mode !== lastMode) {
+    morphFrom = island.getBoundingClientRect();
     island.classList.toggle('shrinking', !!lastMode && SIZE[mode] < SIZE[lastMode]);
     island.classList.remove('idle', 'compact', 'toast', 'peek', 'reminder', 'scene', 'expanded');
     island.classList.add(mode);
     const prev = lastMode;
     lastMode = mode;
+    window.FlintMotion.panels(island, mode, prev);
     if (typeof positionIsland === 'function') positionIsland();
     if (typeof wake === 'function') wake();
     window.dispatchEvent(new CustomEvent('island:mode', { detail: { mode, prev } }));
+    bridge.activityMode(mode);
   }
   island.classList.toggle('has-media', !!state.media.has);
   island.classList.toggle('playing', !!state.media.playing);
   const kind = compactKind();
+  island.classList.toggle('activity-timer', kind === 'timer');
   for (const el of [$('.l-compact'), $('.l-vcompact')]) {
     el.classList.toggle('timer', kind === 'timer');
     el.classList.toggle('dl', kind === 'dl');
@@ -131,7 +141,9 @@ function render() {
     if (typeof positionIsland === 'function') positionIsland();
   }
   setCompactTitle(!showTitle ? '' : kind === 'media' ? state.media.title : state.dl.title);
+  $('.activity-label').textContent = state.timer.phase === 'focus' ? 'Focus' : state.timer.phase === 'break' ? 'Break' : 'Timer';
   $('.c-title').hidden = !showTitle;
+  if (morphFrom) window.FlintMotion.morph(island, morphFrom, mode);
 }
 
 // Title between the art and the equalizer; scrolls back and forth when it doesn't fit.
@@ -202,6 +214,19 @@ bridge.onToggle(() => {
   if (!state.pinned) state.hover = false;
   render();
 });
+bridge.onOutsideClick(() => {
+  clearTimeout(hoverTimer);
+  state.pinned = false; state.hover = false;
+  state.peekUntil = 0; state.toastUntil = 0; state.toastAction = null;
+  state.reminderUntil = 0;
+  window.endScene?.();
+  render();
+});
+bridge.onPresentation(p=>{
+  island.classList.toggle('activity-presenting',!!p.active);
+  island.classList.toggle('activity-attached',!!p.attached);
+  wake(1200);
+});
 
 // ---------------- drag to move (docks when dropped at the top edge) ----------------
 const NO_DRAG = 'button, input, .slider, .file, .app, .pick, .picker, .clip-item, .shelf-items';
@@ -256,15 +281,19 @@ island.addEventListener('click', (e) => {
 // on it, then pushed back inside the window, so near the bottom or the sides the island
 // opens upward / inward instead of off screen. Sizes mirror style.css.
 const DIMS = {
-  idle: [236, 32], compact: [300, 32], toast: [340, 34], peek: [400, 78], expanded: [548, 232],
+  idle: [236, 32], compact: [300, 32], toast: [384, 62], peek: [400, 78], expanded: [548, 232],
 };
 const COMPACT_WIDE = 380; // compact with a title (media / download)
 const VDIMS = { ...DIMS, idle: [44, 244], compact: [44, 136], toast: [44, 168] };
 let anchor = { x: window.innerWidth / 2, y: 8, docked: false, vertical: false, side: 'right' };
 
 function positionIsland() {
+  island.style.setProperty('--dock-x',`${anchor.x}px`);
+  island.style.setProperty('--dock-y',`${anchor.y}px`);
+  const motionPosition=island.getBoundingClientRect();
   let [w, h] = (anchor.vertical ? VDIMS : DIMS)[lastMode] || DIMS.idle;
   if (lastMode === 'compact' && !anchor.vertical && island.classList.contains('c-wide')) w = COMPACT_WIDE;
+  if (lastMode === 'compact' && !anchor.vertical && compactKind() === 'timer') [w, h] = [204, 38];
   if (lastMode === 'reminder') [w, h] = state.reminderSize;
   // in the browser's address bar: a slim pill, or a thin line while the user types there
   if (anchor.addr && !anchor.vertical && (lastMode === 'idle' || lastMode === 'compact')) {
@@ -277,6 +306,7 @@ function positionIsland() {
     const top = anchor.docked ? 30 : Math.min(Math.max(anchor.y + 22, 10), window.innerHeight - 130);
     island.style.setProperty('--x', `${Math.round(left + CW - 64)}px`);
     island.style.setProperty('--y', `${Math.round(top)}px`);
+    window.FlintMotion.move(island,Math.round(left + CW - 64),Math.round(top),false,motionPosition);
     const card = $('#scene-card');
     card.style.left = `${Math.round(left)}px`;
     card.style.top = `${Math.round(top - 14)}px`;
@@ -298,11 +328,16 @@ function positionIsland() {
   }
   island.style.setProperty('--x', `${Math.round(x)}px`);
   island.style.setProperty('--y', `${Math.round(y)}px`);
+  window.FlintMotion.move(island,Math.round(x),Math.round(y),lastMode==='compact',motionPosition);
   wake(); // the glass must follow the island while it slides into place
 }
 
 bridge.onAnchor((a) => {
+  const before = island.getBoundingClientRect();
+  const orientationChanged = !!anchor.vertical !== !!a.vertical;
+  const sideChanged = !!a.vertical && anchor.side !== a.side;
   anchor = a;
+  island.style.setProperty('--dock-y', `${a.y}px`);
   island.classList.toggle('addr-slim', a.addr === 'slim');
   island.classList.toggle('addr-line', a.addr === 'line');
   if (a.addr) {
@@ -314,6 +349,12 @@ bridge.onAnchor((a) => {
   island.classList.toggle('side-left', !!a.vertical && a.side === 'left');
   island.classList.toggle('side-right', !!a.vertical && a.side === 'right');
   positionIsland();
+  if (orientationChanged || sideChanged) {
+    window.FlintMotion.panels(island,lastMode,lastMode);
+    window.FlintMotion.morph(island,before,lastMode);
+    wake(1200);
+    bridge.activityMode(lastMode);
+  }
 });
 
 island.addEventListener('contextmenu', (e) => {
@@ -327,12 +368,13 @@ const bd = $('#bd');
 const bdCtx = bd.getContext('2d');
 const off = document.createElement('canvas');
 const offCtx = off.getContext('2d');
-let fadeFrames = 0;
+let backdropDirty = false;
+let backdropSequence = 0;
 
 function sizeCanvases() {
   [bd, off].forEach((c) => {
-    c.width = window.innerWidth;
-    c.height = window.innerHeight;
+    c.width = Math.round(window.innerWidth * devicePixelRatio);
+    c.height = Math.round(window.innerHeight * devicePixelRatio);
   });
   bd.style.width = `${window.innerWidth}px`;
   bd.style.height = `${window.innerHeight}px`;
@@ -340,32 +382,43 @@ function sizeCanvases() {
 sizeCanvases();
 window.addEventListener('resize', sizeCanvases);
 
-bridge.onBackdrop((url) => {
-  const img = new Image();
-  img.onload = () => {
-    const { width: w, height: h } = off;
-    offCtx.filter = 'none';
-    offCtx.drawImage(img, 0, 0, w, h);
-    offCtx.filter = 'blur(22px) saturate(180%) brightness(.92)';
-    offCtx.drawImage(img, -24, -24, w + 48, h + 48);
-    fadeFrames = 10;
+bridge.onBackdrop(async (capture) => {
+  const sequence = ++backdropSequence;
+  try {
+    const parts = await Promise.all(capture.parts.map(part => new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve({ ...part, img });
+      img.onerror = reject;
+      img.src = part.url;
+    })));
+    if (sequence !== backdropSequence) return;
+    offCtx.clearRect(0, 0, off.width, off.height);
+    const sx = off.width / capture.width, sy = off.height / capture.height;
+    for (const part of parts) offCtx.drawImage(part.img, part.x * sx, part.y * sy, part.width * sx, part.height * sy);
+    backdropDirty = true;
     wake(300);
-  };
-  img.src = url;
+  } catch (err) { console.warn('[backdrop] image decode failed', err); }
 });
 
 const segThumb = $('.seg-thumb');
+let segGeometry = '';
 function placeSegThumb() {
   const a = $('.tab.active');
   if (!a) return;
-  segThumb.style.width = `${a.offsetWidth}px`;
-  segThumb.style.transform = `translateX(${a.offsetLeft}px)`;
+  const key = `${a.offsetLeft},${a.offsetTop},${a.offsetWidth},${a.offsetHeight}`;
+  if (key === segGeometry) return;
+  segGeometry = key;
+  window.FlintMotion.lensMove(segThumb, $('.seg'), a);
 }
 
 // The frame loop only runs while something moves: the island morphing, a fresh backdrop
 // fading in, or the open island (tab thumb, media progress). Idle, it stops completely.
 let frameRunning = false;
 let awakeUntil = 0;
+const liquidGlass = window.FlintGlass.create(island, $('.lg-optics'), (ms) => wake(ms), { geometryPane: $('.lg-optics') });
+const tabGlass = window.FlintGlass.create(island, $('.seg'), (ms) => wake(ms), { pane: $('.seg'), backdrop: true, cacheLimit: 12 });
+const tabLens = window.FlintGlass.create(island, segThumb, (ms) => wake(ms), { pane: segThumb, kind: 'small', backdrop: true, cacheLimit: 12 });
+window.DesktopBackdrop.create(bridge, off, () => { backdropDirty = true; wake(0); });
 function wake(ms = 900) {
   awakeUntil = Math.max(awakeUntil, performance.now() + ms);
   if (!frameRunning) {
@@ -377,16 +430,22 @@ function wake(ms = 900) {
 function frame() {
   const r = island.getBoundingClientRect();
   bd.style.transform = `translate(${-r.left}px, ${-r.top}px)`;
-  if (fadeFrames > 0) {
-    bdCtx.globalAlpha = fadeFrames === 1 ? 1 : 0.22;
+  liquidGlass.update();
+  if (backdropDirty) {
+    // Replace the input atomically. Repeated source-over blending retains old
+    // pixels where a captured frame is transparent, producing ghost trails.
+    bdCtx.clearRect(0, 0, bd.width, bd.height);
+    bdCtx.globalAlpha = 1;
     bdCtx.drawImage(off, 0, 0);
-    fadeFrames--;
+    backdropDirty = false;
   }
   if (lastMode === 'expanded') {
     placeSegThumb();
+    tabGlass.update();
+    tabLens.update();
     tickProgress();
   }
-  if (fadeFrames > 0 || lastMode === 'expanded' || state.moving || performance.now() < awakeUntil) {
+  if (backdropDirty || lastMode === 'expanded' || state.moving || performance.now() < awakeUntil) {
     requestAnimationFrame(frame);
   } else {
     frameRunning = false;
@@ -396,6 +455,8 @@ function frame() {
 // ---------------- tabs ----------------
 $$('.tab').forEach((btn) => btn.addEventListener('click', () => selectTab(btn.dataset.tab)));
 function selectTab(tab) {
+  const previous = state.tab;
+  if (previous !== tab) { const old = $(`#v-${previous}`); if (old) window.FlintMotion.clear(old); }
   state.tab = tab;
   $$('.tab').forEach((b) => {
     const on = b.dataset.tab === tab;
@@ -403,7 +464,14 @@ function selectTab(tab) {
     b.setAttribute('aria-selected', on);
   });
   $$('.view').forEach((v) => v.classList.toggle('active', v.id === `v-${tab}`));
+  placeSegThumb();
+  if (previous !== tab) window.FlintMotion.enter([$(`#v-${tab}`)], { y: 18 });
+  wake(1200);
 }
+window.FlintMotion.press();
+window.addEventListener('island:mode', e => {
+  if (e.detail.mode === 'expanded' && e.detail.prev === 'compact' && compactKind() === 'timer') selectTab('timer');
+});
 
 // ---------------- clock ----------------
 function tickClock() {
@@ -886,6 +954,9 @@ function drawTimer() {
   const text = fmt(Math.ceil(rem));
   $('#tm-digits').textContent = text;
   $('#c-time').textContent = $('#vc-time').textContent = text;
+  $('.activity-time').textContent = text;
+  $('.activity-ring .progress').style.strokeDashoffset = t.total ? 100 * (1 - rem / t.total) : 100;
+  island.classList.toggle('timer-paused', !t.running && rem > 0);
   $('#tm-ring').style.strokeDashoffset = t.total ? RING * (1 - rem / t.total) : RING;
   const started = t.remaining > 0 && t.remaining < t.total;
   $('#tm-start').textContent = t.running ? 'Pause' : started ? 'Resume' : 'Start';
@@ -1048,6 +1119,13 @@ function applyFeatures(f) {
   window.dispatchEvent(new CustomEvent('island:features', { detail: state.features }));
 }
 bridge.onFeatures(applyFeatures);
+function applyAppearance(g) {
+  if (!g) return;
+  document.documentElement.dataset.theme = g.theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.glass = g.glass === 'clear' ? 'clear' : 'frosted';
+}
+bridge.onGeneral(applyAppearance);
+bridge.general().then(applyAppearance);
 bridge.onVisibility((v) => { state.visible = !!v; });
 bridge.features().then(applyFeatures);
 $('#open-settings').addEventListener('click', () => bridge.openSettings());

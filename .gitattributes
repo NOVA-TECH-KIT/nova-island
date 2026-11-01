@@ -1,0 +1,2 @@
+# Preserve the upstream minified distribution and its license header verbatim.
+vendor/gsap.min.js -whitespace

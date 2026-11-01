@@ -1,0 +1,179 @@
+{
+  "base": "7e3c4ee3f1898609d02c96eee6295448304424dc",
+  "island": {
+    "results": [
+      {
+        "mode": "idle",
+        "docked": false,
+        "vertical": false,
+        "side": "right",
+        "width": 236,
+        "height": 32,
+        "radius": "16px",
+        "filterWidth": "292",
+        "filters": 1
+      },
+      {
+        "mode": "compact",
+        "docked": false,
+        "vertical": false,
+        "side": "right",
+        "width": 300,
+        "height": 32,
+        "radius": "16px",
+        "filterWidth": "356",
+        "filters": 2
+      },
+      {
+        "mode": "toast",
+        "docked": false,
+        "vertical": false,
+        "side": "right",
+        "width": 384,
+        "height": 62,
+        "radius": "31px",
+        "filterWidth": "440",
+        "filters": 6
+      },
+      {
+        "mode": "peek",
+        "docked": false,
+        "vertical": false,
+        "side": "right",
+        "width": 400,
+        "height": 78,
+        "radius": "28px",
+        "filterWidth": "456",
+        "filters": 10
+      },
+      {
+        "mode": "expanded",
+        "docked": false,
+        "vertical": false,
+        "side": "right",
+        "width": 548,
+        "height": 232,
+        "radius": "44px",
+        "filterWidth": "604",
+        "filters": 17
+      },
+      {
+        "mode": "idle",
+        "docked": true,
+        "vertical": false,
+        "side": "right",
+        "width": 236,
+        "height": 32,
+        "radius": "0px",
+        "filterWidth": "292",
+        "filters": 19
+      },
+      {
+        "mode": "reminder",
+        "docked": false,
+        "vertical": false,
+        "side": "right",
+        "width": 500,
+        "height": 140,
+        "radius": "30px",
+        "filterWidth": "556",
+        "filters": 24
+      },
+      {
+        "mode": "scene",
+        "docked": false,
+        "vertical": false,
+        "side": "right",
+        "width": 64,
+        "height": 66,
+        "radius": "28px",
+        "filterWidth": "120",
+        "filters": 26
+      },
+      {
+        "mode": "idle",
+        "docked": false,
+        "vertical": true,
+        "side": "left",
+        "width": 44,
+        "height": 244,
+        "radius": "0px",
+        "filterWidth": "100",
+        "filters": 26
+      },
+      {
+        "mode": "idle",
+        "docked": false,
+        "vertical": true,
+        "side": "right",
+        "width": 44,
+        "height": 244,
+        "radius": "22px",
+        "filterWidth": "100",
+        "filters": 26
+      }
+    ],
+    "tabs": [
+      {
+        "url": "url(\"#flint-lg-39\")",
+        "width": 242,
+        "mapWidth": 298,
+        "channels": 3
+      },
+      {
+        "url": "url(\"#flint-lg-40\")",
+        "width": 71,
+        "mapWidth": 127,
+        "channels": 1
+      }
+    ],
+    "sideMotion": [
+      {
+        "side": "left",
+        "frames": 39,
+        "edge": "fixed",
+        "center": "fixed",
+        "horizontalContent": "visible"
+      },
+      {
+        "side": "right",
+        "frames": 41,
+        "edge": "fixed",
+        "center": "fixed",
+        "horizontalContent": "visible"
+      }
+    ],
+    "horizontalMotion": {
+      "openingFrames": 43,
+      "closingFrames": 49,
+      "center": "fixed",
+      "close": "monotonic"
+    },
+    "errors": [],
+    "focusPill": "204x38; timer opens on click; outside click collapses without stopping timer",
+    "frameTiming": {
+      "p75": 16.700000000000728,
+      "p95": 16.799999999999272
+    },
+    "atomicBackdropReplacement": "passed",
+    "reducedTransparency": "geometry unchanged; filters restored",
+    "pointerGlint": "passed",
+    "deviceScaleFactor": 1.5
+  },
+  "settings": {
+    "navigationPerf": {
+      "frameP75": 16.700000000000728,
+      "frameP95": 33.399999999999636,
+      "longTasks": 2,
+      "longTaskMax": 185,
+      "handlerMax": 44
+    },
+    "worker": "verified",
+    "settledRefraction": "restored",
+    "appearance": "theme, glass and all 10 wallpapers passed",
+    "rapidNavigation": "single page; lens aligned",
+    "search": "passed",
+    "smallViewport": "760x560 fits",
+    "errors": []
+  }
+}
