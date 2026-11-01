@@ -1,5 +1,6 @@
-// IDM Nova downloads: compact pill (ring + name + speed + %), a liquid progress line on the
-// idle pill, start / done / failed toasts, and a live list with pause, resume, open and folder.
+// IDM Nova downloads, plus browser downloads seen in the download folders (no size known, no
+// pause): compact pill (ring + name + speed + %), a liquid progress line on the idle pill,
+// start / done / failed toasts, and a live list with pause, resume, open and folder.
 (() => {
   const view = $('#v-downloads');
   const list = $('#dl-list');
@@ -52,6 +53,7 @@
   }
 
   function actions(d) {
+    if (d.source === 'folder') return d.status === 'completed' ? ['open', 'reveal'] : [];
     if (MOVING.includes(d.status) || d.status === 'queued') return ['pause'];
     if (d.status === 'paused' || d.status === 'error') return ['resume'];
     if (d.status === 'completed') return ['open', 'reveal'];
@@ -122,14 +124,16 @@
 
   // ---- toasts on transitions ----
   const known = new Map(); // id -> last status
-  let primed = false; // the first list after IDM Nova comes online is history, not news
-  function announce(items) {
+  let primed = false; // the first list (and IDM Nova's first after it comes online) is history, not news
+  let idmPrimed = false;
+  function announce(items, idmOnline) {
     for (const d of items) {
       const prev = known.get(d.id);
-      if (primed && feat('dlToasts')) {
+      if ((d.source === 'folder' ? primed : idmPrimed) && feat('dlToasts')) {
         if (!prev && (MOVING.includes(d.status) || d.status === 'queued')) {
           showToast('dl-start', d.name, 'Downloading', 0, 2600);
-        } else if (prev && prev !== 'completed' && d.status === 'completed') {
+        // a quick browser download may show up already finished
+        } else if ((prev ? prev !== 'completed' : d.source === 'folder') && d.status === 'completed') {
           island.classList.add('dl-flash');
           setTimeout(() => island.classList.remove('dl-flash'), 4300);
           showToast('dl-done', d.name, 'Done', 1, 4200);
@@ -143,6 +147,7 @@
       known.set(d.id, d.status);
     }
     primed = true;
+    idmPrimed = idmOnline;
   }
 
   // ---- pill: ring, name, speed, percent, liquid line ----
@@ -178,11 +183,9 @@
 
   function update(p) {
     for (const [url, data] of Object.entries(p?.thumbs || {})) thumbs.set(url, data);
-    const items = p?.online ? p.items || [] : [];
-    if (!p?.online) {
-      primed = false;
-      known.clear();
-    }
+    const items = p?.items || [];
+    // IDM Nova went away: its downloads are forgotten, the folder ones stay
+    if (!p?.online) for (const id of known.keys()) if (!id.startsWith('f:')) known.delete(id);
     view.classList.toggle('dl-offline', !items.length);
     $('#dl-empty-title').textContent = p?.outdated
       ? 'IDM Nova needs an update'
@@ -195,7 +198,7 @@
     $('#dl-launch').hidden = !p?.canLaunch;
 
     if (items.length) lastSeen = Date.now();
-    announce(items);
+    announce(items, !!p?.online);
     pill(items);
     lastItems = items;
     renderList(items);
@@ -205,7 +208,7 @@
 
   // Downloads tab: only while something is downloading or within an hour of the last download.
   function showTab() {
-    const on = feat('downloads') && (state.dl.active || (lastSeen > 0 && Date.now() - lastSeen < TAB_FOR_MS));
+    const on = (feat('downloads') || feat('folderDownloads')) && (state.dl.active || (lastSeen > 0 && Date.now() - lastSeen < TAB_FOR_MS));
     if (on === state.dl.tab) return;
     state.dl.tab = on;
     refreshTabs();

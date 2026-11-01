@@ -1,5 +1,5 @@
 const {
-  app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage, globalShortcut, desktopCapturer, shell,
+  app, BrowserWindow, screen, ipcMain, Tray, Menu, nativeImage, globalShortcut, desktopCapturer, shell, dialog, powerMonitor,
 } = require('electron');
 const fs = require('fs');
 const os = require('os');
@@ -98,10 +98,12 @@ function clamp(v, lo, hi) {
 // (the user's split: two thirds for the address, one third for the island); it shrinks to a
 // thin line while the user types there. The user's own position is untouched and comes back
 // as soon as the browser isn't in front.
+// Only from the island's default place: never while vertical or after the user put it somewhere.
 let omni = null;
 let omniKey = '';
+const omniAllowed = () => features.get().addrIsland && !prefs.vertical && !prefs.placed;
 function onOmni(o) {
-  const next = o && features.get().addrIsland && !prefs.vertical ? o : null;
+  const next = o && omniAllowed() ? o : null;
   const key = next ? `${next.x},${next.y},${next.w},${next.h},${next.focus}` : '';
   if (key === omniKey) return;
   omniKey = key;
@@ -138,7 +140,7 @@ function layoutAddressBar() {
 function layout() {
   if (!win || !anchor) return;
   // not while the user drags the island somewhere else
-  if (omni && !drag) {
+  if (omni && !drag && omniAllowed()) {
     layoutAddressBar();
     return;
   }
@@ -179,7 +181,16 @@ function layout() {
 function placeWindow() {
   if (!win) return;
   anchor = Number.isFinite(prefs.ax) && Number.isFinite(prefs.ay) ? { x: prefs.ax, y: prefs.ay } : defaultAnchor();
+  // settings from before "placed" existed: judge by where the island is
+  if (typeof prefs.placed !== 'boolean') prefs.placed = !atDefaultPlace();
   layout();
+}
+
+// the island's own spot: horizontal, at the top, centered on its display
+function atDefaultPlace() {
+  if (prefs.vertical || !anchor) return false;
+  const b = screen.getDisplayNearestPoint({ x: Math.round(anchor.x), y: Math.round(anchor.y) }).bounds;
+  return Math.abs(anchor.x - (b.x + b.width / 2)) < 2 && anchor.y - b.y <= FLOAT_TOP + 2;
 }
 
 function savePosition() {
@@ -191,6 +202,7 @@ function savePosition() {
 function resetPosition() {
   prefs.docked = false;
   prefs.vertical = false;
+  prefs.placed = false;
   anchor = defaultAnchor();
   layout();
   savePosition();
@@ -210,6 +222,11 @@ function setVertical(on) {
     anchor = { x, y: anchor.y - V_PILL_HALF_H };
   }
   prefs.vertical = on;
+  // leaving the address bar at once (it would otherwise stay until the bar itself changes)
+  if (on) {
+    omni = null;
+    omniKey = '';
+  }
   layout();
   savePosition();
   notifyGeneral();
@@ -218,9 +235,11 @@ function setVertical(on) {
 // --- dragging ---
 // The renderer reports drag start/end; while dragging the window follows the cursor.
 let drag = null;
+let dragFrom = null;
 ipcMain.on('drag-start', () => {
   if (!win || drag || !anchor) return;
   const p = screen.getCursorScreenPoint();
+  dragFrom = { ...anchor };
   // grab the (shrinking) pill near where it was pressed so it stays under the cursor
   const ox = clamp(p.x - anchor.x, -PILL_HALF_W + 16, PILL_HALF_W - 16);
   const oy = prefs.vertical
@@ -256,6 +275,9 @@ ipcMain.on('drag-end', () => {
   if (!drag) return;
   clearInterval(drag.timer);
   drag = null;
+  // a real move decides whether the island stays where the user put it (no address-bar jump)
+  if (dragFrom && Math.hypot(anchor.x - dragFrom.x, anchor.y - dragFrom.y) > 20) prefs.placed = !atDefaultPlace();
+  dragFrom = null;
   savePosition();
   captureBackdrop(); // refresh the glass for the new spot right away
   // don't pop the island open right after a move; re-arm when the cursor leaves
@@ -411,24 +433,53 @@ async function onClipboardSeq(seq, isPrivate) {
   if (!img || img.isEmpty()) return;
   lastShot = img;
   const { width, height } = img.getSize();
-  send('screenshot', { thumb: img.resize({ height: 72, quality: 'good' }).toDataURL(), width, height });
+  const f = features.get();
+  const auto = f.shotAutoShelf && f.tabShelf;
+  send('screenshot', { thumb: img.resize({ height: 72, quality: 'good' }).toDataURL(), width, height, auto });
+  if (auto) shotToShelf(Date.now() + f.shotShelfMinutes * 60 * 1000);
 }
-ipcMain.on('shot-to-shelf', async () => {
+
+// The Snipping Tool saves every capture to Pictures\Screenshots by itself: that file goes on the
+// shelf (no second copy). Any other copied image is saved to Pictures\Nova Island first.
+const SNIP_WAIT_MS = 2500;
+async function windowsScreenshot(since) {
+  const dir = path.join(app.getPath('pictures'), 'Screenshots');
+  for (let waited = 0; waited <= SNIP_WAIT_MS; waited += 250) {
+    try {
+      const fresh = fs.readdirSync(dir)
+        .filter((n) => /\.(png|jpe?g)$/i.test(n))
+        .map((n) => path.join(dir, n))
+        .map((p) => [p, fs.statSync(p)])
+        .filter(([, s]) => s.size > 0 && s.mtimeMs >= since - 1500)
+        .sort((a, b) => b[1].mtimeMs - a[1].mtimeMs)[0];
+      if (fresh) return fresh[0];
+    } catch {}
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return null;
+}
+async function shotToShelf(until = 0) {
   if (!lastShot) return;
-  const dir = path.join(app.getPath('pictures'), 'Nova Island');
-  const pad = (n) => String(n).padStart(2, '0');
-  const d = new Date();
-  const file = path.join(dir, `Screenshot ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.png`);
+  const shot = lastShot;
+  const copiedAt = Date.now();
   try {
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(file, lastShot.toPNG());
-    shelf.add([file]);
+    let file = until ? await windowsScreenshot(copiedAt) : null;
+    if (!file) {
+      const dir = path.join(app.getPath('pictures'), 'Nova Island');
+      const pad = (n) => String(n).padStart(2, '0');
+      const d = new Date();
+      file = path.join(dir, `Screenshot ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.png`);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(file, shot.toPNG());
+    }
+    shelf.add([file], until);
     send('shelf', await shelf.list());
-    send('shot-saved', { name: path.basename(file) });
+    if (!until) send('shot-saved', { name: path.basename(file) });
   } catch (err) {
     console.error('[screenshot]', err.message);
   }
-});
+}
+ipcMain.on('shot-to-shelf', () => shotToShelf());
 
 const MEDIA_CMD = /^(toggle|next|prev|mute|seek \d+(\.\d+)?|vol [01](\.\d+)?|bright \d{1,3})$/;
 ipcMain.on('media-cmd', (_e, cmd) => {
@@ -918,6 +969,15 @@ ipcMain.on('clip-action', async (_e, action) => {
     }
   } else if (s.type === 'math' && action === 'copy') system.writeQuiet(s.result);
 });
+// download folders watched for browser downloads (Settings > Connections)
+const folderDownloads = require('./browser-downloads');
+ipcMain.handle('dl-folders', () => folderDownloads.folderList());
+ipcMain.handle('dl-folder-add', async (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const r = await dialog.showOpenDialog(win, { title: 'Add a download folder', properties: ['openDirectory'] });
+  return r.canceled || !r.filePaths[0] ? folderDownloads.folderList() : folderDownloads.addFolder(r.filePaths[0]);
+});
+ipcMain.handle('dl-folder-remove', (_e, p) => folderDownloads.removeFolder(p));
 ipcMain.handle('cal-get', () => ({ ...calendar.snapshot(), hasUrl: calendar.hasUrl() }));
 ipcMain.handle('cal-set', (_e, url) => calendar.setUrl(url));
 // only meeting links the calendar itself produced (Meet / Teams / Zoom / Webex, https)
@@ -966,6 +1026,7 @@ features.onChange((f) => {
   send('features', f);
   prefsWindow.send('features', f);
   downloads.setEnabled(f.downloads);
+  downloads.setFolders(f.folderDownloads);
   privacy.setEnabled(f.privacyDots);
   network.setEnabled(f.netToasts);
   if (f.autoUpdate !== autoUpdate) {
@@ -1050,15 +1111,29 @@ app.whenReady().then(() => {
   startMedia();
   system.start(send);
   prayer.start(send, system.getLocation);
-  downloads.start(send, features.get().downloads);
+  downloads.start(send, features.get().downloads, features.get().folderDownloads);
   privacy.start(send, features.get().privacyDots);
   network.start(send, features.get().netToasts);
   updater.start(send, autoUpdate);
+  // waking from sleep or getting the internet back: weather, prayer times and a failed update
+  // check catch up at once instead of waiting for their next timer (5 s for Wi-Fi to reconnect)
+  let wakeTimer = null;
+  const wake = () => {
+    clearTimeout(wakeTimer);
+    wakeTimer = setTimeout(() => {
+      system.refreshNow();
+      prayer.retry();
+      updater.retrySoon();
+    }, 5000);
+  };
+  powerMonitor.on('resume', wake);
+  network.onBack(wake);
   calendar.start((ch, data) => {
     send(ch, data);
     prefsWindow.send(ch, data);
   });
   apps.init(async () => send('apps', await apps.list()));
+  shelf.start(async () => send('shelf', await shelf.list()));
   schedulePoll();
   scheduleCapture(300);
   globalShortcut.register('CommandOrControl+Alt+I', () => send('toggle'));

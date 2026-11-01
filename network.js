@@ -13,6 +13,8 @@ let enabled = true;
 let timer = null;
 let state = { link: 'none', internet: null, since: Date.now() };
 let lastProbe = 0;
+const backListeners = []; // called when the internet comes back
+const onBack = (fn) => backListeners.push(fn);
 
 // 'wifi' / 'ethernet' / 'none': any adapter with a real IPv4 address is up (Wi-Fi wins)
 function linkKind() {
@@ -50,6 +52,7 @@ async function poll() {
   const prev = state;
   state = { link, internet, since: changed ? Date.now() : state.since };
   if (changed) send('network', { ...state, prev });
+  if (changed && prev.internet === false && internet) backListeners.forEach((fn) => fn());
   timer = setTimeout(poll, LINK_MS);
 }
 
@@ -66,4 +69,4 @@ function start(sender, on = true) {
   if (on) poll();
 }
 
-module.exports = { start, setEnabled, snapshot: () => state };
+module.exports = { start, setEnabled, onBack, snapshot: () => state };

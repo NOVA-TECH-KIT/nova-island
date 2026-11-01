@@ -208,10 +208,16 @@
       celebrate();
       break;
     case 'update':
-      fire('onUpdate', { version: '1.3.0' });
+      fire('onUpdate', { version: '1.4.0' });
+      break;
+    case 'updating':
+      fire('onUpdate', { version: '1.4.0' });
+      await wait(300);
+      island.click(); // "Update now"
       break;
     case 'shot':
-      fire('onScreenshot', { thumb: video, width: 1600, height: 900 });
+    case 'shot-auto':
+      fire('onScreenshot', { thumb: video, width: 1600, height: 900, auto: state === 'shot-auto' });
       break;
     case 'meet-slide': {
       const t = Date.now() + 25 * 60e3;

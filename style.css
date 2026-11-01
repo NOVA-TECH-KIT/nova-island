@@ -449,6 +449,7 @@ svg.s { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: rou
 .file .fname { width: 100%; font-size: 10.5px; line-height: 1.25; color: var(--text-2); text-align: center; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word; }
 .file .x { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; background: rgba(60, 60, 67, .95); opacity: 0; transition: opacity var(--dur-fast); }
 .file .x svg { width: 10px; height: 10px; stroke-width: 3; }
+.file .left { position: absolute; top: 4px; left: 4px; padding: 1px 6px; border-radius: 99px; background: rgba(var(--accent-rgb), .22); color: rgb(var(--accent-rgb)); font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .file:hover .x { opacity: 1; }
 
 /* ---------- timer ---------- */
@@ -818,8 +819,11 @@ svg.s { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: rou
 
 /* ============ copied image / screenshot ============ */
 .t-shot { display: none; height: 22px; max-width: 40px; border-radius: 5px; object-fit: cover; box-shadow: 0 0 0 1px rgba(255, 255, 255, .25); flex: none; }
-.l-toast.shot .t-shot { display: block; }
-.l-toast.shot .batt, .l-toast.shot-saved .batt { display: none; }
+.l-toast.shot .t-shot, .l-toast.shot-auto .t-shot { display: block; }
+.l-toast.shot .batt, .l-toast.shot-saved .batt, .l-toast.shot-auto .batt { display: none; }
+.l-toast.shot-auto #t-value { color: var(--green); font-weight: 700; }
+.l-vtoast.shot-auto .ico-check { display: block; color: var(--green); }
+.l-vtoast.shot-auto .v-bar { display: none; }
 .l-toast.shot #t-value {
   height: 24px; padding: 0 12px; border-radius: 99px; display: inline-flex; align-items: center;
   background: rgba(var(--accent-rgb), .9); color: #06111f; font-weight: 700; cursor: pointer;
@@ -834,6 +838,15 @@ svg.s { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: rou
   background: rgba(var(--accent-rgb), .9); color: #06111f; font-weight: 700; cursor: pointer;
 }
 .l-vtoast.update .v-bar { display: none; }
+/* updating: the countdown before Nova restarts into the new version */
+.l-toast.updating .ico-dl, .l-vtoast.updating .ico-dl { display: block; color: rgb(var(--accent-rgb)); animation: upd-bob 1s ease-in-out infinite; }
+.l-toast.updating .batt, .l-vtoast.updating .v-bar { display: none; }
+.l-toast.updating #t-label { font-weight: 600; }
+.l-toast.updating #t-value {
+  min-width: 26px; height: 24px; padding: 0 8px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(var(--accent-rgb), .18); color: rgb(var(--accent-rgb)); font-weight: 700; font-variant-numeric: tabular-nums;
+}
+@keyframes upd-bob { 0%, 100% { transform: translateY(-1px); } 50% { transform: translateY(2px); } }
 .l-vtoast.shot .ico-dl { display: block; color: rgb(var(--accent-rgb)); }
 .l-vtoast.shot .v-bar, .l-vtoast.shot-saved .v-bar { display: none; }
 

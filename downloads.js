@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 const { shell } = require('electron');
+const folderDownloads = require('./browser-downloads');
 
 const BASE = 'http://127.0.0.1:17890';
 // IDM Nova only answers callers that know the secret it keeps in the user's profile.
@@ -60,7 +61,13 @@ async function loadThumb(url) {
   } catch {}
 }
 
-const payload = () => ({ online, outdated, canLaunch: !online && !!exePath(), items });
+// IDM Nova's downloads, then the ones seen in download folders (a file IDM Nova is fetching
+// may also show up there: it is listed once)
+function allItems() {
+  const names = new Set(items.map((d) => d.name));
+  return [...items, ...folderDownloads.items().filter((d) => !names.has(d.name))];
+}
+const payload = () => ({ online, outdated, canLaunch: !online && !!exePath(), items: allItems() });
 
 // forget thumbnails of downloads that left the list, and never keep more than MAX_THUMBS
 function pruneThumbs() {
@@ -110,9 +117,9 @@ async function poll() {
 }
 
 async function control(id, action) {
-  const d = items.find((x) => x.id === id);
+  const d = allItems().find((x) => x.id === id);
   if (action === 'open' || action === 'reveal') {
-    // only paths IDM Nova itself reported
+    // only paths IDM Nova or the folder watch itself reported
     if (!d?.path) return;
     if (action === 'open') shell.openPath(d.path);
     else shell.showItemInFolder(d.path);
@@ -123,7 +130,7 @@ async function control(id, action) {
     if (exe) spawn(exe, [], { detached: true, stdio: 'ignore' }).unref();
     return;
   }
-  if (!['pause', 'resume', 'show'].includes(action)) return;
+  if (!['pause', 'resume', 'show'].includes(action) || d?.source === 'folder') return;
   try {
     await fetch(`${BASE}/control`, {
       method: 'POST',
@@ -145,10 +152,11 @@ function setEnabled(on) {
   poll();
 }
 
-function start(sender, on = true) {
+function start(sender, on = true, folders = true) {
   send = sender;
   enabled = on;
+  folderDownloads.start(publish, folders);
   poll();
 }
 
-module.exports = { start, control, setEnabled, snapshot, novaHeaders, forgetToken };
+module.exports = { start, control, setEnabled, setFolders: folderDownloads.setEnabled, snapshot, novaHeaders, forgetToken };

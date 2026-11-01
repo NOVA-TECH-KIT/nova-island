@@ -1,11 +1,22 @@
 // Shelf tab: files dropped on the island. Click opens, right-click reveals, drag out to use.
+// Screenshots put there on their own show the time left before they leave the shelf.
 (() => {
   const view = $('#v-shelf');
   const itemsEl = $('#shelf-items');
   const count = $('#shelf-count');
   const badge = $('#shelf-badge');
+  let current = [];
+
+  const timeLeft = (until) => {
+    const m = Math.max(1, Math.ceil((until - Date.now()) / 60000));
+    return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h`;
+  };
+  setInterval(() => {
+    for (const el of itemsEl.querySelectorAll('[data-until]')) el.textContent = timeLeft(Number(el.dataset.until));
+  }, 30 * 1000);
 
   function renderItems(items) {
+    current = items;
     view.classList.toggle('empty-shelf', !items.length);
     badge.classList.toggle('on', items.length > 0);
     count.textContent = `${items.length} ${items.length === 1 ? 'file' : 'files'}`;
@@ -18,6 +29,7 @@
       d.innerHTML =
         `${f.icon ? `<img src="${f.icon}" alt="">` : ''}` +
         `<span class="fname" dir="auto">${esc(f.name)}</span>` +
+        `${f.until ? `<span class="left" data-until="${f.until}" title="Leaves the Shelf on its own">${timeLeft(f.until)}</span>` : ''}` +
         `<button class="x" aria-label="Remove ${esc(f.name)}">${ICON_X}</button>`;
       d.addEventListener('click', (e) => {
         if (e.target.closest('.x')) bridge.shelf.remove(f.path);

@@ -51,7 +51,7 @@
                 <button role="radio" data-orient="v">Vertical</button>
               </div>
             </div>
-            <label class="row"><div class="txt"><b>Browser address bar</b><small>Right third, never over tabs</small></div><input type="checkbox" class="sw" data-feature="addrIsland"></label>
+            <label class="row"><div class="txt"><b>Browser address bar</b><small>Only from its default place at the top</small></div><input type="checkbox" class="sw" data-feature="addrIsland"></label>
             <label class="row"><b>Hide in full screen</b><input type="checkbox" class="sw" data-feature="hideFullscreen"></label>
             <label class="row"><b>Auto-update</b><input type="checkbox" class="sw" data-feature="autoUpdate"></label>
             <label class="row"><div class="txt"><b>Battery saver</b><small>When the battery runs low, the performance cuts switch on by themselves</small></div><input type="checkbox" class="sw" data-feature="batterySaver"></label>
@@ -212,6 +212,10 @@
             <label class="row"><b>Keyboard language</b><input type="checkbox" class="sw" data-feature="kbdToast"></label>
             <label class="row"><b>Caps Lock</b><input type="checkbox" class="sw" data-feature="capsToast"></label>
             <label class="row"><b>Screenshots</b><input type="checkbox" class="sw" data-feature="screenshotToast"></label>
+            <label class="row sub" data-needs="screenshotToast"><div class="txt"><b>Save screenshots to Shelf</b><small>The file stays where it was saved</small></div><input type="checkbox" class="sw" data-feature="shotAutoShelf"></label>
+            <div class="row sub2" data-needs="screenshotToast shotAutoShelf"><b>Keep on Shelf</b>
+              <div class="stepper" data-num="shotShelfMinutes" data-steps="5,10,20,30,60,120,240,480,1440" data-unit="min"><button data-dir="-1" aria-label="Less">−</button><output></output><button data-dir="1" aria-label="More">+</button></div>
+            </div>
           </div>
         </div>
         <div class="group">
@@ -243,10 +247,15 @@
           </details>
         </div>
         <div class="group">
-          <h2>IDM Nova</h2>
+          <h2>Downloads</h2>
           <div class="card">
-            <label class="row"><b>Downloads</b><input type="checkbox" class="sw" data-feature="downloads"></label>
-            <label class="row sub" data-needs="downloads"><b>Download alerts</b><input type="checkbox" class="sw" data-feature="dlToasts"></label>
+            <label class="row"><b>IDM Nova downloads</b><input type="checkbox" class="sw" data-feature="downloads"></label>
+            <label class="row"><div class="txt"><b>Browser downloads</b><small>Chrome, Edge, Firefox and others</small></div><input type="checkbox" class="sw" data-feature="folderDownloads"></label>
+            <label class="row"><b>Download alerts</b><input type="checkbox" class="sw" data-feature="dlToasts"></label>
+          </div>
+          <div class="card folders" data-needs="folderDownloads">
+            <div id="dl-folders"></div>
+            <div class="row"><div class="txt"><b>Download folders</b><small>Where your browser saves files</small></div><button class="btn" id="dl-folder-add">Add folder</button></div>
           </div>
         </div>
         <div class="group">

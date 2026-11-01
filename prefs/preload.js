@@ -23,4 +23,7 @@ contextBridge.exposeInMainWorld('prefs', {
   setCalendar: (url) => ipcRenderer.invoke('cal-set', url),
   onCalendar: on('calendar'),
   openSupport: (key) => ipcRenderer.send('open-support', key),
+  downloadFolders: () => ipcRenderer.invoke('dl-folders'),
+  addDownloadFolder: () => ipcRenderer.invoke('dl-folder-add'),
+  removeDownloadFolder: (p) => ipcRenderer.invoke('dl-folder-remove', p),
 });

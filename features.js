@@ -31,6 +31,7 @@ const DEFAULTS = {
   // IDM Nova
   downloads: true,
   dlToasts: true,
+  folderDownloads: true, // browser downloads, seen in the download folders
   // window
   hideFullscreen: true,
   autoUpdate: true, // download new versions from GitHub and offer a restart on the island
@@ -41,8 +42,10 @@ const DEFAULTS = {
   glassFreeze: false, // the glass only refreshes while the island is open or changing
   // System tab
   clipboardHistory: true,
-  // copied image / screenshot -> toast with "Add to Shelf"
+  // copied image / screenshot -> toast; on the Shelf by itself for a while, or "Add to Shelf"
   screenshotToast: true,
+  shotAutoShelf: true,
+  shotShelfMinutes: 20,
   // mic / camera in use
   privacyDots: true,
   // companion
@@ -81,7 +84,7 @@ const DEFAULTS = {
 const RANGES = {
   remindEvery: [1, 240], remindFor: [5, 300], quietFrom: [0, 1439], quietTo: [0, 1439],
   focusMin: [5, 120], breakMin: [1, 60], longBreakMin: [5, 60], hijriAdjust: [-2, 2], waterEvery: [15, 240], waterGoal: [4, 16],
-  batterySaverAt: [10, 100],
+  batterySaverAt: [10, 100], shotShelfMinutes: [5, 1440],
 };
 
 let values = { ...DEFAULTS, ...pick(settings.load('features.json', {})) };

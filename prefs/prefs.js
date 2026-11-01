@@ -187,6 +187,24 @@ $('#cal-save').addEventListener('click', async () => {
 api.onCalendar((c) => showCalendar({ ...c, hasUrl: true }));
 api.calendar().then(showCalendar);
 
+// ---- download folders (browser downloads) ----
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+function showFolders(list) {
+  $('#dl-folders').innerHTML = (list || []).map((f) => `<div class="row folder"><small class="path" title="${esc(f.path)}">${esc(f.path)}</small>${f.fixed
+    ? '<small class="val">Windows Downloads</small>'
+    : `<button class="btn" data-folder="${esc(f.path)}" aria-label="Remove folder">✕</button>`}</div>`).join('');
+}
+$('#dl-folders').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-folder]');
+  if (!b) return;
+  showFolders(await api.removeDownloadFolder(b.dataset.folder));
+  saved();
+});
+$('#dl-folder-add').addEventListener('click', async () => {
+  showFolders(await api.addDownloadFolder());
+});
+api.downloadFolders().then(showFolders);
+
 // ---- media bridge health ----
 async function showBridge() {
   const s = await api.bridgeStatus();
