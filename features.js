@@ -70,6 +70,7 @@ const DEFAULTS = {
   remindAyah: true,
   remindDhikr: true,
   remindDua: true,
+  remindNabawi: true, // du'as of the Prophet ﷺ
   remindEvery: 5, // minutes
   remindFor: 30, // seconds on screen
   // quiet hours for reminders (minutes after midnight; may wrap past midnight)
