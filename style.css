@@ -713,6 +713,7 @@ svg.s { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: rou
 .l-reminder { --rm-rgb: 255, 212, 121; display: flex; flex-direction: column; padding: 12px 22px 16px; gap: 6px; }
 .l-reminder.dhikr { --rm-rgb: 94, 234, 212; }
 .l-reminder.dua { --rm-rgb: 167, 139, 250; }
+.l-reminder.nabawi { --rm-rgb: 134, 239, 172; }
 .rm-head { display: flex; align-items: center; justify-content: space-between; height: 24px; flex: none; }
 .rm-badge {
   display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 10px 0 9px; border-radius: 99px;
@@ -844,8 +845,9 @@ svg.s { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: rou
 /* ============ Ramadan ============ */
 .pr-ramadan { margin-top: 4px; font-size: 11.5px; font-weight: 600; color: #ffd479; }
 .pr-row.iftar b::after { content: " · الإفطار"; font-weight: 500; color: #ffd479; }
-/* the Focus button gets its own row under the presets, in its own colour */
-.presets .focus-btn { grid-column: 1 / -1; justify-content: center; width: auto; background: rgba(255, 107, 107, .16); color: #ff8a8a; }
+/* the Focus buttons share their own row under the presets, in their own colour */
+.presets .focus-btn { grid-column: span 2; justify-content: center; width: auto; background: rgba(255, 107, 107, .16); color: #ff8a8a; }
+.presets .focus-btn small { color: inherit; opacity: .6; margin: 0 1px; }
 .presets .focus-btn:hover { background: rgba(255, 107, 107, .26); }
 .presets .focus-btn.sel { background: #ff6b6b; color: #2a0808; }
 

@@ -932,7 +932,8 @@ function drawTimer() {
   $('#tm-start').textContent = t.running ? 'Pause' : started ? 'Resume' : 'Start';
   const label = t.phase === 'focus' ? `Focus ${focus.round + 1}` : t.phase === 'break' ? 'Break' : 'Running';
   $('#tm-state').textContent = t.running ? label : started ? 'Paused' : t.total ? 'Ready' : 'Pick a time';
-  $('#tm-focus').classList.toggle('sel', !!t.phase);
+  $('#tm-focus').classList.toggle('sel', !!t.phase && !focus.plan);
+  $('#tm-focus-50').classList.toggle('sel', !!t.phase && !!focus.plan);
   $('#tm-reset').disabled = !t.total;
   return rem;
 }
@@ -981,10 +982,14 @@ $('#tm-start').addEventListener('click', () => {
 });
 
 // ---- focus sessions: focus, then a break that starts by itself (longer after every 4th) ----
-const focus = { round: 0 };
+// plan: a fixed focus / break pair (the 50 / 10 button); null uses the Settings lengths
+const focus = { round: 0, plan: null };
+const focusLength = () => (focus.plan ? focus.plan.focus : state.features.focusMin || 25);
 function startPhase(phase) {
   const f = state.features;
-  const min = phase === 'focus' ? f.focusMin || 25 : (focus.round % 4 === 0 ? f.longBreakMin || 15 : f.breakMin || 5);
+  const min = phase === 'focus' ? focusLength()
+    : focus.plan ? focus.plan.brk
+    : focus.round % 4 === 0 ? f.longBreakMin || 15 : f.breakMin || 5;
   setTimer(min, phase);
   state.timer.endAt = Date.now() + state.timer.remaining * 1000;
   state.timer.running = true;
@@ -1006,11 +1011,20 @@ const focusing = () => state.timer.phase === 'focus' && timerActive();
 $('#tm-focus').addEventListener('click', () => {
   if (state.timer.phase) return;
   focus.round = 0;
+  focus.plan = null;
+  startPhase('focus');
+});
+// 50 min of focus, then a 10 min break every round
+$('#tm-focus-50').addEventListener('click', () => {
+  if (state.timer.phase) return;
+  focus.round = 0;
+  focus.plan = { focus: 50, brk: 10 };
   startPhase('focus');
 });
 
 $('#tm-reset').addEventListener('click', () => {
   focus.round = 0;
+  focus.plan = null;
   island.classList.remove('focus-on', 'break-on');
   state.timer = { total: 0, remaining: 0, endAt: 0, running: false };
   $$('[data-min]').forEach((b) => b.classList.remove('sel'));
@@ -1039,7 +1053,7 @@ setInterval(() => {
       celebrate(['#ff6b6b', '#ffd479', '#ff9f0a']);
       playTones([[0, 784], [0.2, 988]], { peak: 0.2, decay: 0.6 });
     } else {
-      setTimer(state.features.focusMin || 25, null);
+      setTimer(focusLength(), null);
       island.classList.remove('focus-on', 'break-on');
       showToast('done', 'Break over', 'Focus', 0, 9000);
       state.toastAction = () => startPhase('focus');

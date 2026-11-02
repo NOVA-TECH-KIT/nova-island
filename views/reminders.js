@@ -1,14 +1,15 @@
-// Dhikr, du'a and Qur'an reminders: every N minutes a large card for N seconds (Settings).
+// Dhikr, du'a (Qur'anic and the Prophet's ﷺ) and Qur'an reminders: every N minutes a large card for N seconds (Settings).
 // Hovering the card pauses its countdown; it waits while the island is open or a toast shows.
 (() => {
   const layer = $('.l-reminder');
   const textEl = $('#rm-text');
   const bar = $('.rm-time b');
-  const KIND_NAME = { ayah: 'آية', dhikr: 'ذكر', dua: 'دعاء' };
-  const KIND_FEATURE = { ayah: 'remindAyah', dhikr: 'remindDhikr', dua: 'remindDua' };
+  const KIND_NAME = { ayah: 'آية', dhikr: 'ذكر', dua: 'دعاء', nabawi: 'من أدعية النبي ﷺ' };
+  const KIND_FEATURE = { ayah: 'remindAyah', dhikr: 'remindDhikr', dua: 'remindDua', nabawi: 'remindNabawi' };
   const WIDTH = 500;
   const V_WIDTH = 340; // docked to a side edge
   const MAX_H = 270;
+  const MIN_FS = 16; // smallest text size for the longest du'as
 
   const everyMs = () => (state.features.remindEvery || 5) * 60000;
   // quiet hours may wrap past midnight (23:00 -> 07:00)
@@ -72,14 +73,19 @@
     }
     // diacritics and Qur'anic marks (U+064B–065F, U+0670, U+06D6–06ED) add characters but no width
     const len = item.text.replace(/[ً-ٰٟۖ-ۭ]/g, '').length;
-    const fs = len <= 40 ? 30 : len <= 80 ? 26 : 23;
+    let fs = len <= 40 ? 30 : len <= 80 ? 26 : 23;
     const w = anchor.vertical ? V_WIDTH : WIDTH;
-    layer.style.setProperty('--rm-fs', `${fs}px`);
-    measure.style.setProperty('--rm-fs', `${fs}px`);
     measure.style.width = `${w - 44}px`;
     measure.innerHTML = words(item);
     // padding 12 + head 24 + gaps 12 + ref 16 + bottom 16
-    const h = Math.min(MAX_H, Math.ceil(measure.scrollHeight) + 82);
+    const height = () => {
+      measure.style.setProperty('--rm-fs', `${fs}px`);
+      return Math.ceil(measure.scrollHeight) + 82;
+    };
+    // long du'as step the font down until they fit the card
+    while (height() > MAX_H && fs > MIN_FS) fs--;
+    layer.style.setProperty('--rm-fs', `${fs}px`);
+    const h = Math.min(MAX_H, height());
     state.reminderSize = [w, h];
     island.style.setProperty('--rw', `${w}px`);
     island.style.setProperty('--rh', `${h}px`);
