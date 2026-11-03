@@ -82,12 +82,14 @@
     at = order.indexOf(state);
   };
   const next = () => show(order[(at + 1) % order.length]);
-  const play = () => { clearInterval(timer); if (!still) timer = setInterval(next, 3400); };
+  // ?shots holds a state still (?shots&state=note) for page screenshots
+  const shotState = new URLSearchParams(location.search).get('state');
+  const play = () => { clearInterval(timer); if (!still && !location.search.includes('shots')) timer = setInterval(next, 3400); };
   tabs.forEach((b) => b.addEventListener('click', () => { show(b.dataset.to); play(); }));
   const stage = $('.stage');
   stage.addEventListener('mouseenter', () => clearInterval(timer));
   stage.addEventListener('mouseleave', play);
-  show('music');
+  show(order.includes(shotState) ? shotState : 'music');
   play();
 
   // the prayer countdown ticks

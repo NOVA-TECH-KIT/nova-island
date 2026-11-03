@@ -395,3 +395,97 @@ kbd { padding: 2px 7px; border-radius: 6px; background: var(--surface-2); box-sh
 
 /* the name stays on one line */
 .brand { white-space: nowrap; }
+
+/* ===== the hero island, to the app's own measurements =====
+   One --u is one pixel of the app; the island's 640px window spans the page's screen. */
+.screen { container-type: inline-size; }
+.nisland {
+  --u: calc(100cqw / 640);
+  --w: 548; --h: 232; --r: 34;
+  position: absolute; left: 50%; top: calc(8 * var(--u)); transform: translateX(-50%);
+  width: calc(var(--w) * var(--u)); height: calc(var(--h) * var(--u)); border-radius: calc(var(--r) * var(--u));
+  color: #fff; font-size: calc(13 * var(--u)); overflow: hidden; isolation: isolate;
+  backdrop-filter: blur(24px) saturate(1.6); -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .22), inset 0 1px 0 rgba(255, 255, 255, .16), 0 calc(14 * var(--u)) calc(34 * var(--u)) rgba(0, 0, 0, .45);
+  transition: width .5s var(--spring), height .5s var(--spring), border-radius .5s var(--spring);
+}
+.nisland .tint { position: absolute; inset: 0; z-index: -1; background: rgba(14, 14, 20, .52); transition: background .4s; }
+.nisland[data-state="music"] .tint { background: rgba(10, 10, 16, .64); }
+.nisland[data-state="clock"], .nisland[data-state="prayer"] { --w: 236; --h: 32; --r: 16; }
+.nisland[data-state="dl"] { --w: 300; --h: 32; --r: 16; }
+.nisland[data-state="note"] { --w: 340; --h: 34; --r: 17; }
+.nisland svg { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+.nface {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between; gap: calc(8 * var(--u));
+  padding: 0 calc(14 * var(--u)); white-space: nowrap; opacity: 0; filter: blur(calc(4 * var(--u))); transform: scale(.96);
+  transition: opacity .22s ease, filter .22s ease, transform .4s var(--spring); pointer-events: none;
+}
+.nisland[data-state="clock"] .f-idle, .nisland[data-state="music"] .f-exp, .nisland[data-state="note"] .f-note,
+.nisland[data-state="prayer"] .f-prayer, .nisland[data-state="dl"] .f-dl { opacity: 1; filter: none; transform: none; transition-delay: .14s; }
+.nface .side { display: flex; align-items: center; gap: calc(6 * var(--u)); min-width: 0; }
+.nface .side.grow { flex: 1; }
+.nface .strong { font-size: calc(13 * var(--u)); font-weight: 600; font-variant-numeric: tabular-nums; }
+.nface .soft { font-size: calc(12 * var(--u)); color: rgba(235, 235, 245, .7); }
+.nface .ell { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.nface .gold, .nface .moon { color: #ffd479; }
+.nface .green { color: #30d158; }
+.nface svg { width: calc(15 * var(--u)); height: calc(15 * var(--u)); }
+.f-idle .wx { color: #ffd479; }
+
+/* toast: an app's notification (its icon, its colour from the left, Open) */
+.f-note { background: radial-gradient(130% 220% at 0% 50%, rgba(42, 171, 238, .4), transparent 62%); padding: 0 calc(6 * var(--u)) 0 calc(8 * var(--u)); }
+.appico { width: calc(22 * var(--u)); height: calc(22 * var(--u)); border-radius: calc(6 * var(--u)); display: grid; place-items: center; flex: none; background: rgb(var(--c)); }
+.appico svg { width: calc(13 * var(--u)); height: calc(13 * var(--u)); fill: #fff; stroke: #fff; stroke-width: 1.2; }
+.f-note .open { height: calc(24 * var(--u)); padding: 0 calc(12 * var(--u)); border-radius: 99px; display: inline-flex; align-items: center; background: rgba(42, 171, 238, .9); font-size: calc(13 * var(--u)); font-weight: 700; }
+
+/* compact: the download ring */
+.f-dl .ring { width: calc(18 * var(--u)); height: calc(18 * var(--u)); transform: rotate(-90deg); }
+.f-dl .ring circle { stroke: rgba(255, 255, 255, .18); stroke-width: 4; }
+.f-dl .ring .on { stroke: #30d158; stroke-dasharray: 88; stroke-dashoffset: 33; animation: ringfill 4s var(--expo) infinite; }
+
+/* expanded: padding 10 18 16, topbar 32 + 12, art 120 r24, body gap 10 */
+.f-exp { flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 0; padding: calc(10 * var(--u)) calc(18 * var(--u)) calc(16 * var(--u)); }
+.f-exp .topbar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: calc(32 * var(--u)); margin-bottom: calc(12 * var(--u)); }
+.f-exp .chip { justify-self: start; display: flex; align-items: center; gap: calc(7 * var(--u)); height: calc(24 * var(--u)); padding: 0 calc(10 * var(--u)) 0 calc(8 * var(--u)); border-radius: 99px; background: rgba(255, 255, 255, .08); font-size: calc(12 * var(--u)); font-weight: 500; color: rgba(235, 235, 245, .7); }
+.f-exp .dot { width: calc(7 * var(--u)); height: calc(7 * var(--u)); border-radius: 50%; background: rgb(140, 200, 255); box-shadow: 0 0 calc(8 * var(--u)) rgba(140, 200, 255, .9); }
+.f-exp .seg { display: flex; gap: calc(2 * var(--u)); padding: calc(3 * var(--u)); border-radius: 99px; background: rgba(0, 0, 0, .3); box-shadow: inset 0 0 0 .5px rgba(255, 255, 255, .08); }
+.f-exp .tab { display: flex; align-items: center; gap: calc(6 * var(--u)); height: calc(26 * var(--u)); padding: 0 calc(8 * var(--u)); border-radius: 99px; font-size: calc(12 * var(--u)); font-weight: 600; color: rgba(235, 235, 245, .7); }
+.f-exp .tab.on { color: #fff; padding-right: calc(11 * var(--u)); background: rgba(255, 255, 255, .22); box-shadow: 0 calc(2 * var(--u)) calc(8 * var(--u)) rgba(0, 0, 0, .25), inset 0 .5px 0 rgba(255, 255, 255, .25); }
+.f-exp .tr { justify-self: end; display: flex; align-items: center; gap: calc(12 * var(--u)); color: rgba(235, 235, 245, .7); }
+.f-exp .time { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; }
+.f-exp .time b { font-size: calc(13 * var(--u)); color: #fff; font-variant-numeric: tabular-nums; }
+.f-exp .time small { font-size: calc(10.5 * var(--u)); }
+.f-exp .media { flex: 1; display: flex; align-items: center; gap: calc(18 * var(--u)); min-width: 0; }
+.f-exp .art-wrap { position: relative; width: calc(120 * var(--u)); height: calc(120 * var(--u)); flex: none; }
+.f-exp .art { position: absolute; inset: 0; border-radius: calc(24 * var(--u)); background: conic-gradient(from 210deg at 50% 50%, #fb923c, #f43f5e, #c026d3, #6366f1, #fb923c); box-shadow: 0 0 0 .5px rgba(255, 255, 255, .16); }
+.f-exp .art.glow { filter: blur(calc(18 * var(--u))) saturate(1.6); opacity: .65; transform: translateY(calc(8 * var(--u))) scale(.92); }
+.f-exp .m-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: calc(10 * var(--u)); }
+.f-exp .m-head { display: flex; align-items: center; gap: calc(12 * var(--u)); }
+.f-exp .m-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.f-exp .m-text b { font-size: calc(16 * var(--u)); font-weight: 600; letter-spacing: -.01em; line-height: 1.25; }
+.f-exp .m-text small { font-size: calc(12.5 * var(--u)); color: rgba(235, 235, 245, .7); margin-top: calc(2 * var(--u)); }
+.f-exp .eq { display: flex; align-items: flex-end; gap: calc(2 * var(--u)); height: calc(16 * var(--u)); margin: 0; align-self: center; }
+.f-exp .eq i { width: calc(2.5 * var(--u)); height: 100%; border-radius: 2px; background: #f472b6; box-shadow: 0 0 calc(6 * var(--u)) rgba(244, 114, 182, .6); transform-origin: bottom; animation: eq .9s ease-in-out infinite; }
+.f-exp .eq i:nth-child(2) { animation-duration: .7s; } .f-exp .eq i:nth-child(3) { animation-duration: 1.1s; } .f-exp .eq i:nth-child(4) { animation-duration: .8s; } .f-exp .eq i:nth-child(5) { animation-duration: 1s; }
+.f-exp .progress { display: flex; align-items: center; gap: calc(10 * var(--u)); font-size: calc(11 * var(--u)); font-weight: 500; color: rgba(235, 235, 245, .45); font-variant-numeric: tabular-nums; }
+.f-exp .progress > span { min-width: calc(34 * var(--u)); }
+.f-exp .progress > span:last-child { text-align: right; }
+.f-exp .progress i, .f-exp .vol i { flex: 1; height: calc(4 * var(--u)); border-radius: 99px; background: rgba(255, 255, 255, .18); overflow: hidden; }
+.f-exp .progress b, .f-exp .vol b { display: block; height: 100%; border-radius: inherit; background: #fff; }
+.f-exp .progress b { width: 45%; animation: prog 14s linear infinite; }
+.f-exp .vol b { width: 64%; }
+.f-exp .controls { display: flex; align-items: center; justify-content: space-between; gap: calc(10 * var(--u)); }
+.f-exp .transport { display: flex; align-items: center; gap: calc(10 * var(--u)); }
+.f-exp .ctl { width: calc(44 * var(--u)); height: calc(44 * var(--u)); border-radius: 50%; display: grid; place-items: center; }
+.f-exp .ctl svg { width: calc(24 * var(--u)); height: calc(24 * var(--u)); fill: #fff; stroke: #fff; stroke-width: 1.5; }
+.f-exp .ctl.play { width: calc(48 * var(--u)); height: calc(48 * var(--u)); background: rgba(255, 255, 255, .14); box-shadow: inset 0 .5px 0 rgba(255, 255, 255, .3), 0 calc(4 * var(--u)) calc(14 * var(--u)) rgba(0, 0, 0, .25); }
+.f-exp .ctl.play svg { width: calc(26 * var(--u)); height: calc(26 * var(--u)); fill: none; stroke-width: 2.6; }
+.f-exp .vol { display: flex; align-items: center; gap: calc(6 * var(--u)); width: calc(160 * var(--u)); color: rgba(235, 235, 245, .7); }
+.f-exp .vol svg { width: calc(16 * var(--u)); height: calc(16 * var(--u)); }
+.f-exp .vol > span { width: calc(34 * var(--u)); font-size: calc(11 * var(--u)); font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+/* the same cover art, player dot and equalizer as the app's media tab */
+.f-exp .art { background: url("assets/cover.webp") center / cover; }
+.f-exp .dot { background: #f472b6; box-shadow: 0 0 calc(8 * var(--u)) rgba(244, 114, 182, .9); }
+.f-exp .eq { gap: calc(3 * var(--u)); height: calc(18 * var(--u)); }
+.f-exp .eq i { width: calc(3.5 * var(--u)); }
