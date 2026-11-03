@@ -37,6 +37,18 @@
     })
     .catch(() => {}); // the links keep pointing at the releases page, and the count stays hidden
 
+  // a link to a section (the README's #download): go there as soon as the layout is ready, and
+  // again once the fonts are in, instead of waiting for the browser's own late jump
+  const jump = () => {
+    const t = location.hash.length > 1 && document.getElementById(location.hash.slice(1));
+    if (t) t.scrollIntoView({ behavior: 'instant', block: 'start' });
+  };
+  if (location.hash.length > 1 && !location.search.includes('shots')) {
+    requestAnimationFrame(jump);
+    document.fonts?.ready.then(jump);
+    addEventListener('load', jump, { once: true });
+  }
+
   // nav: a stronger glass once the page moves
   const nav = $('#nav');
   addEventListener('scroll', () => nav.classList.toggle('scrolled', scrollY > 20), { passive: true });
