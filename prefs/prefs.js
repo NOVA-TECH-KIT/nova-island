@@ -45,18 +45,159 @@ $('#themes').innerHTML = THEMES.map(([id, name, desc]) => `
     </span>
     <span class="th-meta"><b>${name}</b><small>${desc}</small>${GLASS_THEMES.includes(id) ? '' : '<em>Lighter</em>'}</span>
   </button>`).join('');
-$('#themes').addEventListener('click', (e) => {
+$('#themes').addEventListener('click', async (e) => {
+  const ed = e.target.closest('.th-edit'); // the pencil on a saved square opens its editor
+  if (ed) {
+    openPopout(customList.find((t) => t.id === ed.dataset.edit) || null);
+    return;
+  }
+  const del = e.target.closest('.th-del'); // delete icon next to edit
+  if (del) {
+    const id = del.dataset.del;
+    await api.deleteCustom(id);
+    saved('Deleted');
+    if (features.customTheme === id) features.customTheme = '';
+    // refresh list
+    const list = await api.custom();
+    customList = list || [];
+    renderCustomSquares();
+    return;
+  }
   const card = e.target.closest('.th-card');
   if (!card || card.getAttribute('aria-checked') === 'true') return;
   $$('.th-card').forEach((c) => c.setAttribute('aria-checked', String(c === card)));
+  if (card.dataset.ct) { // a saved custom theme's square: apply it by id
+    api.setFeatures({ theme: 'custom', customTheme: card.dataset.ct });
+    saved(`${card.querySelector('.th-meta b').textContent} applied`);
+    return;
+  }
   api.setFeatures({ theme: card.dataset.theme });
   saved(`${card.querySelector('b').textContent} theme`);
 });
+
+// ---- custom themes: squares in the gallery, an editor popout creates and edits them ----
+const CUSTOM_DEFAULTS = { glass: false, bg: '#191921', text: '#ffffff', accent: '#8cc8ff', line: '#585e6c', radius: 14 };
+const CUSTOM_STEPS = [4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28];
+let customList = [];
+let draft = { ...CUSTOM_DEFAULTS };
+let editingId = null;
+
+const hexA = (hex, a) => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+};
+// a theme's look as CSS vars, for its gallery square and the popout's live stage
+function paletteVars(t) {
+  const rn = Number(t.radius) || 14;
+  return {
+    '--th-prev': t.bg,
+    '--th-bg': t.glass ? hexA(t.bg, .55) : t.bg,
+    '--th-text': t.text,
+    '--th-soft': hexA(t.text, .7),
+    '--th-hi': t.accent,
+    '--th-line': hexA(t.line, .45),
+    '--th-line-w': '1px',
+    '--th-rn': rn,
+    '--th-radius': `${Math.round(23 * Math.min(1.5, rn / 14))}px`,
+  };
+}
+
+// one gallery square per saved theme, painted with its own colors
+function renderCustomSquares() {
+  $$('#themes .th-card[data-ct]').forEach((el) => el.remove());
+  const grid = $('#themes');
+  if (!grid) return;
+  for (const t of (customList || [])) {
+    const b = document.createElement('button');
+    b.className = 'th-card';
+    b.dataset.ct = t.id;
+    b.dataset.theme = 'custom';
+    b.setAttribute('role', 'radio');
+    b.innerHTML = `
+      <span class="th-stage">
+        <span class="th-pill"><b>9:41</b><span>☀ 24°</span></span>
+        <span class="th-pill wide"><i class="th-art"></i><span class="th-song"></span><i class="th-eq"><i></i><i></i><i></i><i></i></i></span>
+        <i class="th-check" aria-hidden="true"></i>
+        <i class="th-edit" data-edit="${t.id}" role="button" title="Edit this theme">&#9998;</i>
+        <i class="th-del" data-del="${t.id}" role="button" title="Delete this theme"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="pointer-events:none;"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/></svg></i>
+      </span>
+      <span class="th-meta"><b></b><small>Custom theme${t.glass ? '' : ' · solid'}</small></span>`;
+    b.querySelector('.th-pill .th-song').textContent = 'Golden Hour';
+    b.querySelector('.th-meta b').textContent = t.name;
+    for (const [k, v] of Object.entries(paletteVars(t))) b.style.setProperty(k, v);
+    grid.appendChild(b);
+  }
+  showCustomState();
+}
+
+// which theme is applied: squares highlight
+function showCustomState() {
+  const applied = (features.theme || 'original') === 'custom' && (features.customTheme || '');
+  $$('#themes .th-card').forEach((c) => {
+    if (c.dataset.ct) c.setAttribute('aria-checked', String(c.dataset.ct === applied));
+  });
+}
+
+if (api?.custom) {
+  api.custom().then((list) => { customList = list || []; renderCustomSquares(); }).catch(console.error);
+  api.onCustom?.((list) => { customList = list || []; renderCustomSquares(); });
+}
+
+// ---- the popout: edit the draft with a live showcase of the pill ----
+function paintDraft() {
+  const stage = document.querySelector('.ovl-stage');
+  for (const [k, v] of Object.entries(paletteVars(draft))) stage.style.setProperty(k, v);
+  $('#ct-corner output').textContent = `${draft.radius} px`;
+  $('#ct-corner [data-dir="-1"]').disabled = draft.radius <= CUSTOM_STEPS[0];
+  $('#ct-corner [data-dir="1"]').disabled = draft.radius >= CUSTOM_STEPS[CUSTOM_STEPS.length - 1];
+}
+function openPopout(t = null) {
+  editingId = t ? t.id : null;
+  draft = t
+    ? { glass: t.glass, bg: t.bg, text: t.text, accent: t.accent, line: t.line, radius: t.radius }
+    : { ...CUSTOM_DEFAULTS };
+  $('#ct-title').textContent = t ? `Edit “${t.name}”` : 'New custom theme';
+  $('#ct-name').value = t ? t.name : '';
+  $('#ct-name').placeholder = t ? 'Rename it — a new name saves a copy' : 'Name it — an existing name saves over it';
+  $('#ct-glass').checked = draft.glass;
+  $$('#ct-ovl [data-ct-c]').forEach((el) => { el.value = draft[el.dataset.ctC]; });
+  paintDraft();
+  $('#ct-ovl').classList.remove('off');
+}
+function closePopout() { $('#ct-ovl').classList.add('off'); }
+$$('#ct-ovl [data-ct-c]').forEach((el) => el.addEventListener('input', () => {
+  draft[el.dataset.ctC] = el.value;
+  paintDraft();
+}));
+$('#ct-glass').addEventListener('change', () => {
+  draft.glass = $('#ct-glass').checked;
+  paintDraft();
+});
+$('#ct-corner').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  const i = CUSTOM_STEPS.indexOf(draft.radius);
+  const next = b.dataset.dir === '1' ? CUSTOM_STEPS[Math.min(CUSTOM_STEPS.length - 1, i + 1)] : CUSTOM_STEPS[Math.max(0, i - 1)];
+  if (next === draft.radius) return;
+  draft.radius = next;
+  paintDraft();
+});
+$('#ct-apply').addEventListener('click', async () => {
+  const t = await api.saveCustom($('#ct-name').value, editingId || '', draft); // the draft, not the island's current look
+  api.setFeatures({ theme: 'custom', customTheme: t.id }); // main loads the look onto the island
+  saved(`Saved ${t.name}`);
+  closePopout();
+});
+$('#ct-name').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('#ct-apply').click(); });
+$('#ct-close').addEventListener('click', closePopout);
+$('#ct-ovl').addEventListener('click', (e) => { if (e.target === $('#ct-ovl')) closePopout(); });
+$('#ct-new').addEventListener('click', () => openPopout());
 
 // ---- feature switches ----
 function showFeatures(f) {
   features = f;
   $$('.th-card').forEach((c) => c.setAttribute('aria-checked', String(c.dataset.theme === (f.theme || 'original'))));
+  showCustomState(); // squares highlight the applied one; 'Edit theme' shows for a saved pick
   $$('[data-feature]').forEach((el) => { el.checked = !!f[el.dataset.feature]; });
   // child settings show only while every switch they depend on is on ("!key": while it is off)
   $$('[data-needs]').forEach((el) => el.classList.toggle('off', !el.dataset.needs.split(' ').every((k) => (k[0] === '!' ? !f[k.slice(1)] : f[k]))));
@@ -103,6 +244,7 @@ function unitText(n, unit) {
   }
   if (unit === 'min') return n >= 60 && n % 60 === 0 ? `${n / 60} h` : `${n} min`;
   if (unit === '%') return `${n}%`;
+  if (unit === 'px') return `${n} px`;
   return `${n} s`;
 }
 function showSteppers() {
@@ -282,6 +424,7 @@ $('#reset-all').addEventListener('click', () => {
 $$('[data-win]').forEach((b) => b.addEventListener('click', () => api.window(b.dataset.win)));
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  if (!$('#ct-ovl').classList.contains('off')) { closePopout(); return; } // the popout comes first
   if ($('#find').value) clearSearch();
   else api.window('close');
 });

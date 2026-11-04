@@ -20,6 +20,7 @@ const mini = require('./mini');
 const prayer = require('./prayer');
 const downloads = require('./downloads');
 const features = require('./features');
+const custom = require('./custom');
 const privacy = require('./privacy');
 const calendar = require('./calendar');
 const network = require('./network');
@@ -633,7 +634,7 @@ async function captureBackdrop() {
 // glass on, and no screen recorder running. While one runs, a glass theme turns solid in its own
 // colors and comes back when the recorder is gone; solid themes never ask at all.
 let recording = false;
-const glassWanted = () => !perf().noBlur && !features.SOLID_THEMES.includes(features.get().theme);
+const glassWanted = () => !perf().noBlur && features.themeGlass(features.get());
 const glassLive = () => glassWanted() && !recording;
 let protectedNow = null;
 function updateProtection() {
@@ -661,7 +662,9 @@ function perf() {
 }
 const perfSlow = () => Object.values(perf()).some(Boolean);
 function islandFeatures() {
-  return { ...features.get(), ...perf(), saver: saverOn };
+  const f = features.get();
+  // with a saved custom theme picked, its snapshot rides along as the live colors
+  return { ...f, ...custom.colors(f.customTheme), ...perf(), saver: saverOn };
 }
 let perfKey = '';
 function applyPerf() {
@@ -994,6 +997,21 @@ ipcMain.handle('features-get', () => features.get());
 ipcMain.handle('island-features', () => islandFeatures());
 ipcMain.on('features-set', (_e, patch) => features.set(patch));
 ipcMain.on('features-reset', () => features.reset());
+// --- saved custom themes ---
+ipcMain.handle('custom-list', () => custom.list());
+ipcMain.handle('custom-save', (_e, name, id, snap) => {
+  const from = snap && typeof snap === 'object' ? snap : features.get(); // the editor's draft wins over the island's current colors
+  return custom.saveTheme(String(name || ''), from, typeof id === 'string' ? id : '');
+});
+ipcMain.handle('custom-delete', (_e, id) => {
+  id = String(id || '');
+  custom.remove(id);
+  if (features.get().customTheme === id) features.set({ customTheme: '' }); // colors stay as they are
+});
+custom.onChange(() => { // the library changed: the island re-paints (fresh pick) and the list re-renders
+  send('features', islandFeatures());
+  prefsWindow.send('custom', custom.list());
+});
 ipcMain.on('reminder-preview', () => send('reminder-now'));
 ipcMain.handle('general-get', () => generalState());
 // Settings > Support: the page names a link, main holds the addresses
@@ -1106,6 +1124,9 @@ ipcMain.on('general-set', (_e, key, value) => {
 let prayerCalc = `${features.get().asrHanafi}|${features.get().hijriAdjust}`;
 let autoUpdate = features.get().autoUpdate;
 let newsOn = features.get().news;
+// the custom theme: picking a saved one loads its colors; live edits only touch the island
+// (saved copies change when the look is Saved, which covers them when the name matches)
+let customThemeWas = features.get().customTheme;
 features.onChange((f) => {
   evalSaver();
   applyPerf();
@@ -1119,6 +1140,16 @@ features.onChange((f) => {
   if (calc !== prayerCalc) {
     prayerCalc = calc;
     prayer.refresh();
+  }
+  if (f.customTheme !== customThemeWas) {
+    customThemeWas = f.customTheme;
+    if (f.customTheme) {
+      const t = custom.getOne(f.customTheme);
+      if (t) {
+        features.set({ customBg: t.bg, customText: t.text, customAccent: t.accent, customLine: t.line, customRadius: t.radius, customGlass: t.glass });
+        return; // the reload triggers this handler again with everything in place
+      }
+    }
   }
   send('features', islandFeatures());
   prefsWindow.send('features', f);

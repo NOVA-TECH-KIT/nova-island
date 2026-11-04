@@ -7,6 +7,11 @@ contextBridge.exposeInMainWorld('prefs', {
   setFeatures: (patch) => ipcRenderer.send('features-set', patch),
   resetFeatures: () => ipcRenderer.send('features-reset'),
   onFeatures: on('features'),
+  // saved custom themes
+  custom: () => ipcRenderer.invoke('custom-list'),
+  onCustom: on('custom'),
+  saveCustom: (name, id, snap) => ipcRenderer.invoke('custom-save', name, id || '', snap || null),
+  deleteCustom: (id) => ipcRenderer.invoke('custom-delete', id),
   general: () => ipcRenderer.invoke('general-get'),
   setGeneral: (key, value) => ipcRenderer.send('general-set', key, value),
   onGeneral: on('general'),

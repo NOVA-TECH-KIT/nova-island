@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-  <link rel="stylesheet" href="style.css?v=1.8.0-4">
+  <link rel="stylesheet" href="style.css?v=1.8.0-5">
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -226,9 +226,9 @@
     <!-- THEMES -->
     <section class="themes" id="themes">
       <div class="head reveal">
-        <span class="eyebrow">13 themes</span>
+        <span class="eyebrow">13 themes + your own</span>
         <h2>Make it <span class="grad">yours.</span></h2>
-        <p>Liquid glass, pure black, pine, sakura, pixel green and more. Some even give Nova little ears.</p>
+        <p>Liquid glass, pure black, pine, sakura, pixel green and more. Some even give Nova little ears — or mix your own look live.</p>
       </div>
       <div class="theme-stage reveal">
         <div class="island theme-island" id="theme-island" data-theme="original">
@@ -248,6 +248,15 @@
           <button role="radio" data-theme="nody" style="--a:#9d174d;--b:#f9a8d4">Nody</button>
           <button role="radio" data-theme="lava" style="--a:#7f1d1d;--b:#fb923c">Lava</button>
           <button role="radio" data-theme="retro" style="--a:#052e16;--b:#22c55e">Retro</button>
+          <button role="radio" data-theme="custom" style="--a:#191921;--b:#8cc8ff">Custom</button>
+        </div>
+        <div class="custom-theme" id="custom-theme" hidden>
+          <label>Surface <input type="color" data-ct="bg" value="#191921"></label>
+          <label>Text <input type="color" data-ct="text" value="#ffffff"></label>
+          <label>Accent <input type="color" data-ct="accent" value="#8cc8ff"></label>
+          <label>Outline <input type="color" data-ct="line" value="#3f4552"></label>
+          <label>Corners <input type="range" data-ct="radius" min="6" max="34" step="2" value="22"><output>22</output></label>
+          <span class="ct-hint">In the app, this is the Custom theme in Settings → Themes</span>
         </div>
       </div>
     </section>
@@ -339,6 +348,6 @@
     </nav>
     <p>© 2026 AmerTech · Free and open source under GPL v3</p>
   </footer>
-  <script src="app.js?v=1.8.0-4"></script>
+  <script src="app.js?v=1.8.0-5"></script>
 </body>
 </html>
