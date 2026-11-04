@@ -603,7 +603,7 @@ function placeholderArt(seed) {
 function setArt(url) {
   ['#c-art', '#vc-art', '#p-art', '#m-art', '#m-art-glow'].forEach((s) => ($(s).src = url));
   const img = new Image();
-  img.onload = () => setAccentFromImage(img);
+  img.onload = () => { if (state.features.theme !== 'custom') setAccentFromImage(img); };
   img.src = url;
 }
 
@@ -1081,12 +1081,66 @@ function refreshTabs() {
   }
 }
 
+// the custom theme paints its own palette: inline vars on body, derived from the features
+// (hex colors from the editor; everything else stays in themes.css)
+const customKeys = ['--th-bg', '--th-tint', '--th-tint-strong', '--th-solid', '--th-text', '--th-soft', '--th-hi', '--th-line', '--th-radius', '--th-rn', '--th-glass', '--th-prev'];
+const hexA = (hex, a) => {
+  const n = parseInt(hex.slice(1), 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+};
+const hexRgb = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+// back to the art's color: while a track plays the album picks the island's accent
+function refreshAccent() {
+  const img = new Image();
+  img.onload = () => setAccentFromImage(img);
+  img.src = $('#m-art').src || placeholderArt('nova');
+}
+function applyCustomTheme(f) {
+  if ((f.theme || 'original') !== 'custom') {
+    if (document.body.dataset.theme === 'custom') {
+      customKeys.forEach((k) => document.body.style.removeProperty(k));
+      refreshAccent();
+    }
+    return;
+  }
+  const good = (c, fb) => (typeof c === 'string' && /^#[0-9a-fA-F]{6}$/.test(c) ? c.toLowerCase() : fb);
+  const bg = good(f.customBg, '#191921');
+  const text = good(f.customText, '#ffffff');
+  const st = document.body.style;
+  st.setProperty('--th-bg', bg);
+  st.setProperty('--th-solid', bg);
+  st.setProperty('--th-text', text);
+  st.setProperty('--th-soft', hexA(text, .7));
+  const accent = good(f.customAccent, '#8cc8ff');
+  st.setProperty('--th-hi', accent);
+  const [ar, ag, ab] = hexRgb(accent);
+  setAccent(ar, ag, ab); // the custom accent drives the island's live accents too
+  st.setProperty('--th-line', hexA(good(f.customLine, '#585e6c'), .45));
+  const rn = String(Math.min(28, Math.max(4, Number(f.customRadius) || 14)));
+  st.setProperty('--th-rn', rn); // unitless, for the island's per-shape corner scale
+  st.setProperty('--th-radius', `${rn}px`); // px, for the Settings preview pill
+  st.setProperty('--th-prev', bg);
+  if (f.customGlass) {
+    st.setProperty('--th-glass', '1');
+    st.setProperty('--th-tint', hexA(bg, .5));
+    st.setProperty('--th-tint-strong', hexA(bg, .66));
+  } else {
+    st.removeProperty('--th-glass');
+    st.setProperty('--th-tint', 'transparent');
+    st.setProperty('--th-tint-strong', 'transparent');
+  }
+}
+
 function applyFeatures(f) {
   state.features = f || {};
   // performance options (or the battery saver): a solid island, and no movement
   document.body.classList.toggle('no-blur', state.features.noBlur === true);
   document.body.classList.toggle('no-anim', state.features.noAnimations === true);
   // the island's theme (themes.css); a theme without glass needs no backdrop
+  applyCustomTheme(state.features);
   document.body.dataset.theme = state.features.theme || 'original';
   document.body.classList.toggle('th-solid', !getComputedStyle(document.body).getPropertyValue('--th-glass').trim());
   $$('[data-feat]').forEach((el) => el.classList.toggle('off', !feat(el.dataset.feat)));

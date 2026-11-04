@@ -42,6 +42,14 @@ const DEFAULTS = {
   batterySaverAt: 20, // percent
   news: true, // plugins, updates and news from the Nova team (news.json on GitHub)
   theme: 'original', // the island's look (themes.css)
+  customTheme: '', // which saved custom theme is in use; '' = the plain editor's colors
+  // the custom theme: its colors are picked in the Themes page
+  customGlass: false, // live glass behind the custom color; off: a solid color (lighter)
+  customBg: '#191921', // surface
+  customText: '#ffffff',
+  customAccent: '#8cc8ff', // highlights: the art square, equalizer, sliders
+  customLine: '#585e6c', // the outline
+  customRadius: 14,
   // System tab
   clipboardHistory: true,
   // copied image / screenshot -> toast; on the Shelf by itself for a while, or "Add to Shelf"
@@ -87,14 +95,22 @@ const RANGES = {
   remindEvery: [1, 240], remindFor: [5, 300], quietFrom: [0, 1439], quietTo: [0, 1439],
   focusMin: [5, 120], breakMin: [1, 60], longBreakMin: [5, 60], hijriAdjust: [-2, 2], waterEvery: [15, 240], waterGoal: [4, 16], shotShelfMinutes: [5, 1440],
   batterySaverAt: [10, 100],
+  customRadius: [4, 28],
 };
+
+// settings that hold one color ('#rrggbb'; picked from a color input, never typed)
+const COLORS = { customBg: 1, customText: 1, customAccent: 1, customLine: 1 };
+// settings that hold a short plain string (a saved custom theme's id; '' = none)
+const TAGS = { customTheme: 1 };
 
 // settings that are one of a fixed list
 const CHOICES = {
-  theme: ['original', 'bakka', 'outline', 'midnight', 'forest', 'snow', 'cat', 'galaxy', 'aurora', 'ocean', 'nody', 'lava', 'retro'],
+  theme: ['original', 'bakka', 'outline', 'midnight', 'forest', 'snow', 'cat', 'galaxy', 'aurora', 'ocean', 'nody', 'lava', 'retro', 'custom'],
 };
 // themes without glass: no screen capture behind them
 const SOLID_THEMES = ['bakka', 'midnight', 'forest', 'cat', 'galaxy', 'aurora', 'ocean', 'nody', 'lava', 'retro'];
+// whether a theme wants the live glass behind it (the custom one only while its glass is on)
+const themeGlass = (f) => (f.theme === 'custom' ? !!f.customGlass : !SOLID_THEMES.includes(f.theme));
 
 let values = { ...DEFAULTS, ...pick(settings.load('features.json', {})) };
 const listeners = [];
@@ -108,6 +124,11 @@ function pick(obj) {
       if (CHOICES[k].includes(v)) out[k] = v;
     } else if (RANGES[k]) {
       if (Number.isFinite(v)) out[k] = Math.min(Math.max(Math.round(v), RANGES[k][0]), RANGES[k][1]);
+    } else if (COLORS[k]) {
+      const c = typeof v === 'string' ? v.trim() : '';
+      if (/^#[0-9a-fA-F]{6}$/.test(c)) out[k] = c.toLowerCase();
+    } else if (TAGS[k]) {
+      if (typeof v === 'string') out[k] = v.trim().slice(0, 40);
     } else if (typeof v === 'boolean') out[k] = v;
   }
   return out;
@@ -134,4 +155,4 @@ function reset() {
 
 const onChange = (fn) => listeners.push(fn);
 
-module.exports = { get, set, reset, onChange, DEFAULTS, SOLID_THEMES };
+module.exports = { get, set, reset, onChange, DEFAULTS, SOLID_THEMES, themeGlass };

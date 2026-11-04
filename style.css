@@ -1137,6 +1137,16 @@ body[data-theme] .clip::after {
 body.th-solid #bd { display: none; }
 body[data-theme="retro"] #island { --tl: var(--th-radius); --tr: var(--th-radius); --br: var(--th-radius); --bl: var(--th-radius); }
 body[data-theme="retro"] .sheen { background: none; }
+/* Custom: the editor's Corners scale every shape's own rounding (14 = the usual look), so the
+   pill still rounds a little and the wide expanded card a lot. The flattened edge-hugging
+   corners keep their rule (these touch --r only), and the hairline addr states are untouched. */
+body[data-theme="custom"] #island          { --r: calc(16px * (var(--th-rn, 14) / 14)); }
+body[data-theme="custom"] #island.toast    { --r: calc(17px * (var(--th-rn, 14) / 14)); }
+body[data-theme="custom"] #island.peek     { --r: calc(28px * (var(--th-rn, 14) / 14)); }
+body[data-theme="custom"] #island.expanded { --r: calc(34px * (var(--th-rn, 14) / 14)); }
+body[data-theme="custom"] #island.vertical { --r: calc(22px * (var(--th-rn, 14) / 14)); }
+body[data-theme="custom"] #island.reminder { --r: calc(30px * (var(--th-rn, 14) / 14)); }
+body[data-theme="custom"] #island.scene    { --r: calc(28px * (var(--th-rn, 14) / 14)); }
 /* Cat: two ears on top of the island (horizontal only) */
 body[data-theme="cat"] #island:not(.vertical)::before, body[data-theme="cat"] #island:not(.vertical)::after {
   content: ""; position: absolute; top: -9px; z-index: 0; width: 0; height: 0; pointer-events: none;
@@ -1188,3 +1198,9 @@ body.th-rec:not(.th-solid) .clip { background: var(--th-solid, rgb(29, 31, 39));
 /* Remove blur (or the battery saver) still means a solid island on the glass themes */
 body.no-blur:not(.th-solid) .clip { background: rgb(20, 20, 26); }
 body.no-blur:not(.th-solid) .tint, body.no-blur:not(.th-solid) #island.expanded .tint, body.no-blur:not(.th-solid) #island.peek .tint { background: rgba(20, 20, 26, .97); }
+/* the custom theme owns its colors: a solid cut keeps its own surface and tint, since the
+   custom look is already solid on its own (glass only decides whether a capture runs) */
+body.no-blur[data-theme="custom"] .clip { background: var(--th-bg); }
+body.no-blur[data-theme="custom"] .tint,
+body.no-blur[data-theme="custom"] #island.expanded .tint,
+body.no-blur[data-theme="custom"] #island.peek .tint { background: var(--th-tint); }
