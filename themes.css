@@ -130,3 +130,11 @@
   --th-radius: 5px;
   --th-prev: #0b0f0c;
 }
+/* the custom theme's real colors are set live (inline vars, from the editor in Settings); these
+   are only the fallbacks it boots with */
+[data-theme="custom"] {
+  --th-line: rgba(255, 255, 255, .3); --th-line-w: 1px;
+  --th-text: #fff; --th-soft: rgba(235, 235, 245, .7); --th-hi: #8cc8ff;
+  --th-radius: 14px;
+  --th-prev: #20222c;
+}

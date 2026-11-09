@@ -130,12 +130,35 @@
 
       <!-- THEMES -->
       <section id="themes-page" class="page">
-        <h1>Themes</h1>
+        <div class="titlerow">
+          <h1>Themes</h1>
+          <button id="ct-new" class="btn accent">New custom theme</button>
+        </div>
         <p class="lead">Give the island a new look. Every theme is free, and none of them makes Nova heavier; solid themes are even lighter.</p>
         <div class="group">
           <div class="themes" id="themes" role="radiogroup" aria-label="Theme"></div>
         </div>
       </section>
+
+      <!-- CUSTOM THEME POPOUT (editor and showcase together) -->
+      <div class="ovl off" id="ct-ovl">
+        <div class="ovl-card">
+          <div class="ovl-head"><b id="ct-title">New custom theme</b><button id="ct-close" class="btn" aria-label="Close">&#10005;</button></div>
+          <div class="th-stage ovl-stage">
+            <span class="th-pill wide"><i class="th-art"></i><span class="th-song">Golden Hour</span><i class="th-eq"><i></i><i></i><i></i><i></i></i></span>
+            <span class="stage-cap">How it looks on the desktop</span>
+          </div>
+          <div class="ovl-body">
+            <div class="row"><div class="txt"><b>Glass over the desktop</b><small>Show the live blur behind your color; off, the surface is solid and lighter</small></div><input type="checkbox" class="sw" id="ct-glass"></div>
+            <label class="row"><b>Surface</b><input type="color" class="csw" data-ct-c="bg"></label>
+            <label class="row"><b>Text</b><input type="color" class="csw" data-ct-c="text"></label>
+            <label class="row"><b>Accent</b><input type="color" class="csw" data-ct-c="accent"></label>
+            <label class="row"><b>Outline</b><input type="color" class="csw" data-ct-c="line"></label>
+            <div class="row"><b>Corners</b><div class="stepper" id="ct-corner"><button data-dir="-1" aria-label="Less">-</button><output></output><button data-dir="1" aria-label="More">+</button></div></div>
+            <div class="row field naming"><input type="text" id="ct-name" maxlength="40" placeholder="Name it — an existing name saves over it"><button id="ct-apply" class="btn accent">Save &amp; apply</button></div>
+          </div>
+        </div>
+      </div>
 
       <!-- COMPANION -->
       <section id="companion" class="page">

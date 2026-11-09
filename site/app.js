@@ -153,9 +153,46 @@
 
   // themes: the island changes its look
   const themeIsland = $('#theme-island');
-  $$('.swatches button').forEach((b) => b.addEventListener('click', () => {
-    themeIsland.dataset.theme = b.dataset.theme;
+  const customPanel = $('#custom-theme');
+  // the Custom swatch: the visitor's own colors, remembered for the next visit
+  const CUSTOM_DEFAULTS = { bg: '#191921', text: '#ffffff', accent: '#8cc8ff', line: '#3f4552', radius: 22 };
+  const ctVars = { bg: '--ct-bg', text: '--ct-text', accent: '--ct-accent', line: '--ct-line', radius: '--ct-radius' };
+  let custom;
+  try {
+    custom = { ...CUSTOM_DEFAULTS, ...JSON.parse(localStorage.getItem('nova-custom-theme') || '{}') };
+  } catch { custom = { ...CUSTOM_DEFAULTS }; }
+  custom.radius = Math.min(34, Math.max(6, Number(custom.radius) || 22));
+  function paintCustom() {
+    for (const [key, name] of Object.entries(ctVars)) {
+      themeIsland.style.setProperty(name, key === 'radius' ? `${custom.radius}px` : custom[key]);
+    }
+    const out = customPanel.querySelector('output');
+    const slider = customPanel.querySelector('[data-ct="radius"]');
+    if (out) out.textContent = custom.radius;
+    if (slider) slider.value = custom.radius;
+    try { localStorage.setItem('nova-custom-theme', JSON.stringify(custom)); } catch {}
+  }
+  function paintSwatch() {
+    // the Custom chip's gradient shows the current mix
+    const chip = document.querySelector('.swatches [data-theme="custom"]');
+    if (chip) chip.style.setProperty('--a', custom.bg);
+    if (chip) chip.style.setProperty('--b', custom.accent);
+  }
+  const setChecked = (b) => {
     $$('.swatches button').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+    themeIsland.dataset.theme = b.dataset.theme;
+    customPanel.hidden = b.dataset.theme !== 'custom';
+  };
+  $$('.swatches button').forEach((b) => b.addEventListener('click', () => setChecked(b)));
+  paintSwatch(); // the Custom chip's gradient follows the saved mix
+  paintCustom();
+  // the editor's inputs start at the saved mix, not the defaults
+  customPanel.querySelectorAll('[data-ct]').forEach((el) => { if (custom[el.dataset.ct] != null) el.value = custom[el.dataset.ct]; });
+  customPanel.querySelectorAll('[data-ct]').forEach((el) => el.addEventListener('input', () => {
+    custom[el.dataset.ct] = el.value;
+    if (el.dataset.ct === 'radius') customPanel.querySelector('output').textContent = el.value;
+    paintCustom();
+    paintSwatch();
   }));
 
   // screenshots tilt a little toward the cursor
