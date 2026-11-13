@@ -24,6 +24,7 @@ button { font: inherit; color: inherit; background: none; border: 0; padding: 0;
 :focus-visible { outline: 2px solid rgba(111, 140, 255, .9); outline-offset: 2px; }
 svg { fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 [hidden] { display: none !important; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 input { font: inherit; color: inherit; }
 
 /* ---- title bar ---- */
@@ -115,20 +116,38 @@ label.row:hover { background: rgba(255, 255, 255, .025); }
 .btns { display: flex; gap: 8px; flex: none; }
 
 /* tab chips */
-.chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.chips { position: relative; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 700px) { .chips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .chip {
-  position: relative; display: flex; align-items: center; gap: 10px; height: 46px; padding: 0 14px; border-radius: 11px; cursor: pointer;
-  background: var(--panel); box-shadow: inset 0 0 0 1px var(--stroke); color: var(--text-3); transition: background .15s, color .15s, box-shadow .15s;
+  position: relative; display: flex; align-items: center; height: 46px; border-radius: 11px;
+  background: var(--panel); box-shadow: inset 0 0 0 1px var(--stroke); color: var(--text-3);
+  transition: background .15s, color .15s, box-shadow .15s;
 }
+.chip > label { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; height: 100%; padding: 0 0 0 14px; cursor: pointer; }
 .chip input { position: absolute; opacity: 0; pointer-events: none; }
-.chip svg { width: 17px; height: 17px; flex: none; }
+.chip > label svg { width: 17px; height: 17px; flex: none; }
 .chip b { font-weight: 550; }
 .chip:hover { background: rgba(255, 255, 255, .06); }
 .chip:has(input:checked) { color: #fff; background: rgba(111, 140, 255, .14); box-shadow: inset 0 0 0 1px rgba(111, 140, 255, .55); }
-.chip:has(input:checked) svg { color: #a9b8ff; }
+.chip:has(input:checked) > label svg { color: #a9b8ff; }
 .chip:has(input:focus-visible) { outline: 2px solid rgba(111, 140, 255, .9); outline-offset: 2px; }
 .chip.nope { animation: nope .35s; }
 body.searching .chip.miss { display: none !important; }
+
+/* reorder: drag handle on the card, lift while dragging, others make room */
+.grip {
+  flex: none; display: grid; place-items: center; width: 26px; height: 36px; margin: 0 5px 0 3px; border-radius: 7px;
+  color: var(--text-3); cursor: grab; touch-action: none; transition: background .15s, color .15s;
+}
+.grip svg { width: 10px; height: 16px; fill: currentColor; stroke: none; }
+.grip:hover { background: rgba(255, 255, 255, .08); color: var(--text-2); }
+.grip:disabled { cursor: default; opacity: .35; background: none; }
+.chips.reordering:has(.lifted)::before {
+  content: ""; position: absolute; left: var(--drop-left); top: var(--drop-top); width: var(--drop-width); height: var(--drop-height);
+  border: 1px dashed var(--accent); border-radius: 11px; background: rgba(111, 140, 255, .06); pointer-events: none;
+}
+.chip.lifted { z-index: 5; cursor: grabbing; background: rgba(255, 255, 255, .1); box-shadow: 0 14px 30px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(111, 140, 255, .6); }
+.chips.reordering .chip:not(.lifted) { transition: transform .32s var(--spring), background .15s, color .15s, box-shadow .15s; }
 
 /* switch */
 .sw {

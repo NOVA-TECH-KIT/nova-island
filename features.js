@@ -1,6 +1,9 @@
 // Which parts of the island are on. Edited in the Settings window, applied live by the island.
 const settings = require('./settings');
 
+// the six island tabs, in their default left-to-right order
+const TAB_IDS = ['media', 'apps', 'shelf', 'prayer', 'timer', 'system'];
+
 const DEFAULTS = {
   // expanded tabs
   tabMedia: true,
@@ -9,6 +12,7 @@ const DEFAULTS = {
   tabPrayer: true,
   tabTimer: true,
   tabSystem: true,
+  tabOrder: TAB_IDS.slice(),
   // idle pill slides
   slideClock: true,
   slideStats: true,
@@ -96,8 +100,24 @@ const CHOICES = {
 // themes without glass: no screen capture behind them
 const SOLID_THEMES = ['bakka', 'midnight', 'forest', 'cat', 'galaxy', 'aurora', 'ocean', 'nody', 'lava', 'retro'];
 
-let values = { ...DEFAULTS, ...pick(settings.load('features.json', {})) };
+function defaultValues() {
+  return { ...DEFAULTS, tabOrder: DEFAULTS.tabOrder.slice() };
+}
+
+let values = { ...defaultValues(), ...pick(settings.load('features.json', {})) };
 const listeners = [];
+
+// keep the six known tab ids once each, then append missing ids in default order
+function normalizeTabOrder(order) {
+  const out = [];
+  for (const id of order) {
+    if (TAB_IDS.includes(id) && !out.includes(id)) out.push(id);
+  }
+  for (const id of TAB_IDS) {
+    if (!out.includes(id)) out.push(id);
+  }
+  return out;
+}
 
 // keep only known keys with values of the right type (numbers clamped to their range)
 function pick(obj) {
@@ -108,18 +128,20 @@ function pick(obj) {
       if (CHOICES[k].includes(v)) out[k] = v;
     } else if (RANGES[k]) {
       if (Number.isFinite(v)) out[k] = Math.min(Math.max(Math.round(v), RANGES[k][0]), RANGES[k][1]);
+    } else if (k === 'tabOrder') {
+      if (Array.isArray(v)) out[k] = normalizeTabOrder(v);
     } else if (typeof v === 'boolean') out[k] = v;
   }
   return out;
 }
 
 function get() {
-  return { ...values };
+  return { ...values, tabOrder: values.tabOrder.slice() };
 }
 
 function set(patch) {
   const clean = pick(patch);
-  if (!Object.keys(clean).length) return values;
+  if (!Object.keys(clean).length) return get();
   values = { ...values, ...clean };
   settings.save('features.json', values);
   listeners.forEach((fn) => fn(get()));
@@ -127,7 +149,7 @@ function set(patch) {
 }
 
 function reset() {
-  values = { ...DEFAULTS };
+  values = defaultValues();
   settings.save('features.json', values);
   listeners.forEach((fn) => fn(get()));
 }
