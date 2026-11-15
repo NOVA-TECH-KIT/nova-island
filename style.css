@@ -489,3 +489,10 @@ kbd { padding: 2px 7px; border-radius: 6px; background: var(--surface-2); box-sh
 .f-exp .dot { background: #f472b6; box-shadow: 0 0 calc(8 * var(--u)) rgba(244, 114, 182, .9); }
 .f-exp .eq { gap: calc(3 * var(--u)); height: calc(18 * var(--u)); }
 .f-exp .eq i { width: calc(3.5 * var(--u)); }
+
+/* the direct download, under the Store button: for PCs without the Store */
+.alt-dl { margin: 16px 0 0; font-size: 15px; color: var(--text-3); }
+.download .alt-dl { margin-top: 22px; }
+.alt-dl a { color: var(--text-2); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(255, 255, 255, .3); font-weight: 600; }
+.alt-dl a:hover { color: #fff; text-decoration-color: #fff; }
+.alt-dl small { font-weight: 500; opacity: .75; }

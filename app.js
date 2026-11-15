@@ -1,15 +1,26 @@
 // Nova Island site: the live island, reveals on scroll, Nova's eyes, themes, the numbers, and
 // download links that always point at the latest release.
 (() => {
-  // The Store listing: set STORE_ID to the app's Store ID (Partner Center > Product identity) and
-  // every Store button opens the listing; until then they open a Store search for Nova Island.
+  // The Store: on a Windows PC every Store button downloads Microsoft's small installer, which sets
+  // Nova up from the Store (signed, so no SmartScreen or antivirus warnings); anywhere else (a phone,
+  // a Mac) it opens the Store listing instead. STORE_ID is in Partner Center > Product identity.
   const STORE_ID = '9PHV3N1V2H7M';
   const REPO = 'NOVA-TECH-KIT/nova-island';
   const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
-  if (STORE_ID) $$('[data-store]').forEach((a) => (a.href = `https://apps.microsoft.com/detail/${STORE_ID}`));
+  const onWindows = /Windows NT/i.test(navigator.userAgent) && !/Windows Phone/i.test(navigator.userAgent);
+  if (STORE_ID) {
+    $$('[data-store]').forEach((a) => {
+      if (onWindows) a.href = `https://get.microsoft.com/installer/download/${STORE_ID}?referrer=appbadge`;
+      else {
+        a.href = `https://apps.microsoft.com/detail/${STORE_ID}`;
+        a.target = '_blank';
+        a.rel = 'noopener';
+      }
+    });
+  }
 
   // one call to GitHub: the newest release for the download links (its installer, version and
   // size), and every release's installer downloads added up for the count. GitHub counts each
