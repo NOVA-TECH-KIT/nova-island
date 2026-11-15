@@ -56,6 +56,7 @@ $('#themes').addEventListener('click', (e) => {
 // ---- feature switches ----
 function showFeatures(f) {
   features = f;
+  applyTabOrder(f.tabOrder);
   $$('.th-card').forEach((c) => c.setAttribute('aria-checked', String(c.dataset.theme === (f.theme || 'original'))));
   $$('[data-feature]').forEach((el) => { el.checked = !!f[el.dataset.feature]; });
   // child settings show only while every switch they depend on is on ("!key": while it is off)
@@ -90,6 +91,242 @@ $$('[data-feature]').forEach((el) => el.addEventListener('change', () => {
   api.setFeatures({ [key]: el.checked });
   saved();
 }));
+
+// ---- tab order: drag a card or move it from the keyboard; the island reads the saved order ----
+const TAB_IDS = ['media', 'apps', 'shelf', 'prayer', 'timer', 'system'];
+const DRAG_SETTLE = 'transform .32s cubic-bezier(.3, 1.3, .42, 1)';
+const tabBox = $('#tab-order');
+let drag = null;
+let clickGuard = false; // swallows the click that follows a real drag
+
+const chipsInOrder = () => [...tabBox.querySelectorAll('.chip')];
+const chipIds = () => chipsInOrder().map((c) => c.dataset.tabId);
+const chipNamed = (chip) => chip.querySelector('b')?.textContent || chip.dataset.tabId;
+const searching = () => document.body.classList.contains('searching');
+const canAnimate = () => !features.noAnimations && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function announceTab(text) {
+  $('#tab-order-status').textContent = text;
+}
+
+function setChipOrder(ids) {
+  for (const id of ids) {
+    const chip = tabBox.querySelector(`.chip[data-tab-id="${CSS.escape(id)}"]`);
+    if (chip) tabBox.append(chip);
+  }
+}
+
+// features arrived: put the cards in the saved order (skipped mid-drag)
+function applyTabOrder(order) {
+  if (drag) return;
+  const seen = [...new Set((Array.isArray(order) ? order : []).filter((id) => TAB_IDS.includes(id)))];
+  const full = seen.concat(TAB_IDS.filter((id) => !seen.includes(id)));
+  if (full.join('|') !== chipIds().join('|')) setChipOrder(full);
+}
+
+function saveTabOrder(ids) {
+  api.setFeatures({ tabOrder: ids.slice() });
+  saved();
+}
+
+// keyboard: the focused handle moves its card; focus and the live status follow
+function moveChip(chip, to) {
+  if (searching()) {
+    announceTab('Clear the search to reorder tabs');
+    return;
+  }
+  const ids = chipIds();
+  const from = ids.indexOf(chip.dataset.tabId);
+  to = Math.max(0, Math.min(ids.length - 1, to));
+  if (from < 0 || to === from) {
+    announceTab(`${chipNamed(chip)} is already in position ${from + 1} of ${ids.length}`);
+    return;
+  }
+  ids.splice(to, 0, ids.splice(from, 1)[0]);
+  setChipOrder(ids);
+  chip.querySelector('[data-reorder-tab]')?.focus({ preventScroll: true });
+  announceTab(`${chipNamed(chip)} moved to position ${to + 1} of ${ids.length}`);
+  saveTabOrder(ids);
+}
+
+tabBox.addEventListener('keydown', (e) => {
+  if (drag) return; // a pointer drag owns the order until it ends
+  const handle = e.target instanceof Element ? e.target.closest('[data-reorder-tab]') : null;
+  const chip = handle?.closest('.chip');
+  if (!chip) return;
+  const i = chipIds().indexOf(chip.dataset.tabId);
+  let to = null;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') to = i - 1;
+  else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') to = i + 1;
+  else if (e.key === 'Home') to = 0;
+  else if (e.key === 'End') to = chipIds().length - 1;
+  if (to == null) return;
+  e.preventDefault();
+  moveChip(chip, to);
+});
+
+// Capture on the stationary grid: moving a captured card would release capture.
+// A small threshold separates a click from dragging; the
+// other cards make room (FLIP) as the pointer crosses them, drop saves once
+function dragStart(e) {
+  if (drag || e.button !== 0) return;
+  const handle = e.target instanceof Element ? e.target.closest('[data-reorder-tab]') : null;
+  if (!handle) return;
+  if (searching()) {
+    announceTab('Clear the search to reorder tabs');
+    return;
+  }
+  const chip = handle.closest('.chip');
+  if (!chip) return;
+  drag = { handle, chip, id: e.pointerId, sx: e.clientX, sy: e.clientY, moved: false, order: chipIds(), done: false };
+  tabBox.setPointerCapture(e.pointerId);
+}
+
+function placeDropSlot(chip) {
+  tabBox.style.setProperty('--drop-left', `${chip.offsetLeft}px`);
+  tabBox.style.setProperty('--drop-top', `${chip.offsetTop}px`);
+  tabBox.style.setProperty('--drop-width', `${chip.offsetWidth}px`);
+  tabBox.style.setProperty('--drop-height', `${chip.offsetHeight}px`);
+}
+
+function dragMove(e) {
+  if (!drag || drag.done || e.pointerId !== drag.id) return;
+  if (!drag.moved) {
+    if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
+    drag.moved = true;
+    tabBox.classList.add('reordering');
+    drag.chip.classList.add('lifted');
+    placeDropSlot(drag.chip);
+  }
+  drag.chip.style.transform = `translate(${e.clientX - drag.sx}px, ${e.clientY - drag.sy}px)`;
+
+  const chips = chipsInOrder();
+  const target = chips.find((c) => {
+    if (c === drag.chip) return false;
+    const r = c.getBoundingClientRect();
+    return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  });
+  if (!target) return;
+
+  // FLIP: remember where the other cards were, move the dragged one, animate the rest
+  const forward = chips.indexOf(drag.chip) < chips.indexOf(target);
+  const before = { x: drag.chip.offsetLeft, y: drag.chip.offsetTop };
+  const place = () => tabBox.insertBefore(drag.chip, forward ? target.nextSibling : target);
+  if (canAnimate()) {
+    const others = chips.filter((c) => c !== drag.chip);
+    const first = new Map(others.map((c) => [c, c.getBoundingClientRect()]));
+    place();
+    for (const c of others) {
+      const f = first.get(c);
+      const r = c.getBoundingClientRect();
+      const dx = f.left - r.left;
+      const dy = f.top - r.top;
+      if (!dx && !dy) continue;
+      c.style.transition = 'none';
+      c.style.transform = `translate(${dx}px, ${dy}px)`;
+      requestAnimationFrame(() => { c.style.transition = ''; c.style.transform = ''; });
+    }
+  } else place();
+  drag.sx += drag.chip.offsetLeft - before.x;
+  drag.sy += drag.chip.offsetTop - before.y;
+  drag.chip.style.transform = `translate(${e.clientX - drag.sx}px, ${e.clientY - drag.sy}px)`;
+  placeDropSlot(drag.chip);
+}
+
+function dropDrag(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const d = drag;
+  d.done = true;
+  drag = null;
+  if (tabBox.hasPointerCapture(d.id)) tabBox.releasePointerCapture(d.id);
+  if (!d.moved) return;
+  d.chip.classList.remove('lifted');
+  tabBox.classList.remove('reordering');
+  d.chip.style.transition = canAnimate() ? DRAG_SETTLE : 'none';
+  d.chip.style.transform = '';
+  setTimeout(() => { d.chip.style.transition = ''; }, 400);
+  d.handle.focus({ preventScroll: true });
+  const ids = chipIds();
+  if (ids.join('|') !== d.order.join('|')) {
+    saveTabOrder(ids);
+    announceTab(`${chipNamed(d.chip)} moved to position ${ids.indexOf(d.chip.dataset.tabId) + 1} of ${ids.length}`);
+  }
+  // the click that follows the release must not toggle anything
+  clickGuard = true;
+  setTimeout(() => { clickGuard = false; }, 0);
+}
+
+function cancelDrag(text = 'Reorder cancelled') {
+  if (!drag) return;
+  const d = drag;
+  d.done = true;
+  drag = null;
+  if (tabBox.hasPointerCapture(d.id)) tabBox.releasePointerCapture(d.id);
+  if (!d.moved) {
+    if (text) announceTab(text);
+    return;
+  }
+  d.chip.classList.remove('lifted');
+  if (canAnimate()) {
+    // glide every card back to where the drag started
+    const first = new Map(chipsInOrder().map((c) => [c, c.getBoundingClientRect()]));
+    setChipOrder(d.order);
+    let moved = false;
+    for (const c of chipsInOrder()) {
+      const f = first.get(c);
+      const r = c.getBoundingClientRect();
+      const dx = f.left - r.left;
+      const dy = f.top - r.top;
+      if (!dx && !dy && c !== d.chip) continue;
+      moved = true;
+      c.style.transition = 'none';
+      c.style.transform = `translate(${dx}px, ${dy}px)`;
+      requestAnimationFrame(() => { c.style.transition = ''; c.style.transform = ''; });
+    }
+    if (moved) setTimeout(() => { if (!drag) tabBox.classList.remove('reordering'); }, 360);
+    else tabBox.classList.remove('reordering');
+  } else {
+    tabBox.classList.remove('reordering');
+    setChipOrder(d.order);
+    chipsInOrder().forEach((c) => { c.style.transition = ''; c.style.transform = ''; });
+  }
+  d.handle.focus({ preventScroll: true });
+  if (text) announceTab(text);
+}
+
+tabBox.addEventListener('pointerdown', dragStart);
+tabBox.addEventListener('pointermove', dragMove);
+tabBox.addEventListener('pointerup', dropDrag);
+tabBox.addEventListener('pointercancel', (e) => { if (drag?.id === e.pointerId) cancelDrag(); });
+// capture can also be lost without a pointercancel (a system gesture, a focus steal)
+tabBox.addEventListener('lostpointercapture', (e) => {
+  if (!drag || drag.done || e.pointerId !== drag.id) return;
+  cancelDrag();
+});
+
+// Escape while dragging cancels before the window-close handler sees it
+document.addEventListener('keydown', (e) => {
+  if (drag && e.key === 'Escape') {
+    e.preventDefault();
+    e.stopPropagation();
+    cancelDrag();
+  }
+}, true);
+
+document.addEventListener('click', (e) => {
+  if (!clickGuard) return;
+  clickGuard = false;
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+
+$('#reset-tab-order').addEventListener('click', () => {
+  if (drag) return;
+  setChipOrder(TAB_IDS);
+  api.setFeatures({ tabOrder: TAB_IDS.slice() });
+  announceTab('Tab order reset to the default');
+  saved('Order reset');
+});
 
 // ---- number steppers (fixed list of sensible values) ----
 const TIME_STEPS = Array.from({ length: 48 }, (_, i) => i * 30);
@@ -312,7 +549,9 @@ const items = [...$$('.row, .chip, .th-card')];
 const title = (el) => el.querySelector('b')?.textContent.toLowerCase() || '';
 function search(q) {
   q = q.trim().toLowerCase();
+  if (drag) cancelDrag();
   document.body.classList.toggle('searching', !!q);
+  $$('[data-reorder-tab]').forEach((handle) => { handle.disabled = !!q; });
   links.forEach((a) => a.classList.toggle('on', !q && a.dataset.page === remembered()));
   if (!q) {
     $$('.miss, .empty').forEach((el) => el.classList.remove('miss', 'empty'));

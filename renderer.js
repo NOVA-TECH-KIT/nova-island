@@ -386,14 +386,6 @@ bridge.onBackdrop(async (frame) => {
   wake(300);
 });
 
-const segThumb = $('.seg-thumb');
-function placeSegThumb() {
-  const a = $('.tab.active');
-  if (!a) return;
-  segThumb.style.width = `${a.offsetWidth}px`;
-  segThumb.style.transform = `translateX(${a.offsetLeft}px)`;
-}
-
 // The frame loop only runs while something moves: the island morphing, a fresh backdrop
 // fading in, or the open island (tab thumb, media progress). Idle, it stops completely.
 let frameRunning = false;
@@ -435,6 +427,73 @@ function frame() {
 }
 
 // ---------------- tabs ----------------
+// [tab-order:start] Kept together so scripts/test-tab-order-renderer.cjs can exercise the real
+// functions against a small DOM fixture. Ordering moves the existing buttons, never remakes them:
+// their click listeners, badges, and selected view survive.
+const TAB_ORDER_IDS = ['media', 'apps', 'shelf', 'prayer', 'timer', 'system'];
+const TAB_ANCHOR = { radio: 'media', downloads: 'shelf' };
+const TAB_FEATURE = { media: 'tabMedia', apps: 'tabApps', shelf: 'tabShelf', prayer: 'tabPrayer', timer: 'tabTimer', system: 'tabSystem' };
+
+const segThumb = $('.seg-thumb');
+function placeSegThumb() {
+  const active = $('.tab.active');
+  if (!active || !segThumb) return;
+  segThumb.style.width = `${active.offsetWidth}px`;
+  segThumb.style.transform = `translateX(${active.offsetLeft}px)`;
+}
+
+// Keeps the six core tabs in the saved order. Missing or malformed input falls back to the default;
+// stale ids are ignored and missing ids are appended in default order.
+function normalizeTabOrder(value) {
+  const out = [];
+  const seen = new Set();
+  if (Array.isArray(value)) {
+    for (const id of value) {
+      if (typeof id !== 'string' || !TAB_ORDER_IDS.includes(id) || seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  for (const id of TAB_ORDER_IDS) if (!seen.has(id)) out.push(id);
+  return out;
+}
+
+// Radio rides with Media and Downloads with Shelf; unknown future tabs keep their relative order at the end.
+function orderedTabs(seg, order) {
+  const tabs = [...seg.querySelectorAll('.tab')];
+  const byId = new Map(tabs.map((tab) => [tab.dataset.tab, tab]));
+  const out = [];
+  const seen = new Set();
+  const add = (tab) => {
+    if (!tab || seen.has(tab)) return;
+    seen.add(tab);
+    out.push(tab);
+  };
+  for (const id of order) {
+    add(byId.get(id));
+    for (const [tabId, anchor] of Object.entries(TAB_ANCHOR)) if (anchor === id) add(byId.get(tabId));
+  }
+  tabs.forEach(add);
+  return out;
+}
+
+// Put existing buttons in order without touching buttons already in place. Returns whether anything moved.
+function orderTabs(seg, value) {
+  if (!seg) return false;
+  const thumb = seg.querySelector('.seg-thumb');
+  let next = thumb ? thumb.nextElementSibling : seg.firstElementChild;
+  let moved = false;
+  for (const tab of orderedTabs(seg, normalizeTabOrder(value))) {
+    if (tab === next) {
+      next = next.nextElementSibling;
+      continue;
+    }
+    seg.insertBefore(tab, next);
+    moved = true;
+  }
+  return moved;
+}
+
 $$('.tab').forEach((btn) => btn.addEventListener('click', () => selectTab(btn.dataset.tab)));
 function selectTab(tab) {
   state.tab = tab;
@@ -445,6 +504,32 @@ function selectTab(tab) {
   });
   $$('.view').forEach((v) => v.classList.toggle('active', v.id === `v-${tab}`));
 }
+
+// Hide tabs that are switched off (Downloads shows itself only around download activity).
+function refreshTabs() {
+  let changed = false;
+  $$('.tab').forEach((b) => {
+    const t = b.dataset.tab;
+    // Downloads shows itself around download activity, Radio only with its plugin
+    const hide = t === 'downloads' ? !state.dl.tab : t === 'radio' ? !state.radioTab : !feat(TAB_FEATURE[t]);
+    if (b.hidden !== hide) {
+      b.hidden = hide;
+      changed = true;
+    }
+  });
+  const moved = orderTabs($('.seg'), state.features.tabOrder);
+  let fellBack = false;
+  if ($(`.tab[data-tab="${state.tab}"]`)?.hidden) {
+    const first = [...$$('.tab')].find((b) => !b.hidden);
+    if (first) {
+      selectTab(first.dataset.tab);
+      fellBack = true;
+    }
+  }
+  // Moving the active button leaves the thumb behind, even when no tab was shown or hidden.
+  if (moved || changed || fellBack) placeSegThumb();
+}
+// [tab-order:end]
 
 // ---------------- clock ----------------
 function tickClock() {
@@ -1059,28 +1144,6 @@ setInterval(() => {
 }, 250);
 
 // ---------------- settings ----------------
-const TAB_FEATURE = { media: 'tabMedia', apps: 'tabApps', shelf: 'tabShelf', prayer: 'tabPrayer', timer: 'tabTimer', system: 'tabSystem' };
-
-// Hide tabs that are switched off (Downloads shows itself only around download activity).
-function refreshTabs() {
-  let changed = false;
-  $$('.tab').forEach((b) => {
-    const t = b.dataset.tab;
-    // Downloads shows itself around download activity, Radio only with its plugin
-    const hide = t === 'downloads' ? !state.dl.tab : t === 'radio' ? !state.radioTab : !feat(TAB_FEATURE[t]);
-    if (b.hidden !== hide) {
-      b.hidden = hide;
-      changed = true;
-    }
-  });
-  if ($(`.tab[data-tab="${state.tab}"]`)?.hidden) {
-    const first = [...$$('.tab')].find((b) => !b.hidden);
-    if (first) selectTab(first.dataset.tab);
-  } else if (changed) {
-    placeSegThumb();
-  }
-}
-
 function applyFeatures(f) {
   state.features = f || {};
   // performance options (or the battery saver): a solid island, and no movement
